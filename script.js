@@ -4443,8 +4443,15 @@ async function connectBle() {
   state._allowLoadingOverlay = true;
   try {
     console.log('[BLE] Requesting device...');
+    // Accept ALL devices in the chooser (matches face-tracking app).
+    // Filtering by namePrefix 'BBC micro:bit' here was hiding compatible
+    // peripherals on some BLE stacks (notably macOS Chrome, where
+    // ESP32-impersonator devices that advertise correct UUIDs but a
+    // slightly different name-packet shape are silently dropped).
+    // We still gate functionality post-connect by trying to acquire
+    // UART_SERVICE — non-compatible devices simply fail on getPrimaryService.
     const device = await navigator.bluetooth.requestDevice({
-      filters: [{ namePrefix: 'BBC micro:bit' }],
+      acceptAllDevices: true,
       optionalServices: [UART_SERVICE]
     });
     console.log('[BLE] Device selected:', device.name);
