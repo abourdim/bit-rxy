@@ -4647,7 +4647,6 @@ main {
 .branding-logo {
   height: 13px;
   width: auto;
-  filter: invert(1) brightness(2);
   display: block;
 }
 
@@ -5909,7 +5908,6 @@ body.dev-mode #logCard:not(.collapsed){ display: flex !important; flex-direction
 .hero-header .hero-credit-logo{
   height: 14px !important;
   width: auto !important;
-  filter: invert(1) brightness(2) !important;
   display: block !important;
 }
 
