@@ -4639,7 +4639,16 @@ main {
   white-space: nowrap;
   border: 1px solid rgba(0,212,255,0.3);
   vertical-align: middle;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.branding-logo {
+  height: 13px;
+  width: auto;
+  filter: invert(1) brightness(2);
+  display: block;
 }
 
 #runtimeTitle {
@@ -4666,9 +4675,6 @@ main {
   gap: 6px;
 }
 
-.builder-branding::before {
-  content: '⚡';
-}
 
 /* ========================================
    🎮 SUPER FUN CONNECT BUTTON FOR KIDS!

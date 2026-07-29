@@ -4609,7 +4609,7 @@ function renderRuntime() {
   // Add "Powered by Workshop-Diy" branding
   const title = cfg.title || 'My Remote';
   const titleEl = $('#runtimeTitle');
-  titleEl.innerHTML = `${title} <span class="powered-by">Powered by Workshop-Diy</span>`;
+  titleEl.innerHTML = `${title} <span class="powered-by"><img src="assets/workshop-diy-logo.svg" alt="Workshop-DIY" class="branding-logo">Powered by Workshop-Diy</span>`;
   const grid = $('#runtimeGrid');
   let maxX = 0, maxY = 0;
   cfg.widgets.forEach(w => { maxX = Math.max(maxX, w.x + w.w); maxY = Math.max(maxY, w.y + w.h); });
