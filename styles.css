@@ -5894,3 +5894,23 @@ body.dev-mode #logCard:not(.collapsed){ display: flex !important; flex-direction
 .lang-flag-btn:hover{ background:rgba(255,255,255,0.1); }
 .lang-flag-btn.active{ border-color:#22c55e; background:rgba(34,197,94,0.15); }
 
+/* Persistent Workshop-DIY credit badge in the header (visible on every tab) */
+.hero-header .hero-credit{
+  display: flex !important;
+  align-items: center !important;
+  height: 24px !important;
+  padding: 3px 8px !important;
+  border-radius: 6px !important;
+  border: 1px solid rgba(255,255,255,0.12) !important;
+  background: rgba(255,255,255,0.04) !important;
+  opacity: 0.75 !important;
+  transition: opacity .15s, background .15s !important;
+}
+.hero-header .hero-credit:hover{ opacity: 1 !important; background: rgba(255,255,255,0.1) !important; }
+.hero-header .hero-credit-logo{
+  height: 14px !important;
+  width: auto !important;
+  filter: invert(1) brightness(2) !important;
+  display: block !important;
+}
+
