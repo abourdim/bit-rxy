@@ -125,7 +125,7 @@ pipeline is:
 - [ ] `npm install --save-dev @playwright/test && npx playwright install chromium`
 - [ ] `node etsy-package/build-package.js` — renders all mockups + builds the ZIP
 - [ ] `node <template-path>/verify-clean.mjs` — must exit clean (code 0)
-- [ ] (Optional) `gh api -X POST "repos/abourdim/rxy/pages" -f 'source[branch]=main' -f 'source[path]=/'` — enable GitHub Pages so the live demo URL in the listing actually works
+- [ ] (Optional) `gh api -X POST "repos/abourdim/bit-rxy/pages" -f 'source[branch]=main' -f 'source[path]=/'` — enable GitHub Pages so the live demo URL in the listing actually works
 - [ ] `git add -A && git commit -m "..." && git push`
 - [ ] Follow `etsy-package/seller-only/TODO.md` for the three manual pre-launch items (real product photo, 60s video, LAUNCH10 promo code)
 

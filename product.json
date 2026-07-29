@@ -1,9 +1,9 @@
 {
   "PRODUCT_NAME": "Micro:bit Remote Builder",
   "PRODUCT_SLUG": "MicrobitRemote",
-  "GITHUB_REPO": "rxy",
+  "GITHUB_REPO": "bit-rxy",
   "GITHUB_USER": "abourdim",
-  "LIVE_DEMO_URL": "https://abourdim.github.io/rxy/",
+  "LIVE_DEMO_URL": "https://abourdim.github.io/bit-rxy/",
   "VERSION": "v1.0.0",
   "VERSION_UPPER": "V1.0.0",
   "VERSION_PLAIN": "1.0.0",
