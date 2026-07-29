@@ -1392,7 +1392,7 @@ function generateDemoCode(cfg) {
   // Build header
   const header = `/**
  * ╔════════════════════════════════════════════════════════════════╗
- * ║                    🎮 MICRO:BIT REMOTE 🎮                      ║
+ * ║            🎮 Micro:bit Remote Builder (bit-rxy) 🎮            ║
  * ║                                                                ║
  * ║   Powered by Workshop-DIY.org                                  ║
  * ║   Build your own Bluetooth remote controller!                  ║
