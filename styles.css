@@ -4803,7 +4803,6 @@ main {
 .hero-header .hero-center { display: none !important; } /* drops the bismillah from header — keeps it out of the layout */
 .hero-header .hero-logo   { width: auto !important; height: 44px !important; flex: 0 0 auto !important; }
 .hero-header .hero-logo svg { height: 44px !important; width: auto !important; }
-.hero-header .hero-logo .logo-img{ display: none !important; } /* hide overlapping Workshop-DIY raster logo */
 .hero-header .hero-titles { display: flex !important; flex-direction: column !important; line-height: 1.1 !important; }
 .hero-header .hero-title  { font-size: 1.05rem !important; letter-spacing: .02em !important; white-space: nowrap !important; }
 .hero-header .hero-subtitle{ font-size: .72rem !important; opacity: .65 !important; white-space: nowrap !important; }
