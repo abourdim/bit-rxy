@@ -661,8 +661,6 @@ const I18N = {
 };
 
 const LANGS = ["en","fr","ar"];
-const LANG_ICON = { en:"🇬🇧", fr:"🇫🇷", ar:"🇩🇿" };
-const LANG_NAME = { en:"English", fr:"Français", ar:"العربية" };
 
 function saveLang() { try { localStorage.setItem("kid_lang", state.lang); } catch(e){} }
 function loadLang() { try { return localStorage.getItem("kid_lang"); } catch(e){ return null; } }
@@ -689,12 +687,7 @@ function setLang(lang){
   if (tabs[1]) tabs[1].textContent = t.play;
 
   // Top buttons
-  const langBtn = $("#langBtn");
-  if (langBtn){
-    const s = langBtn.querySelector("span:last-child");
-    if (s) s.textContent = LANG_ICON[state.lang] || "🌍";
-    langBtn.title = "Language: " + (LANG_NAME[state.lang] || state.lang);
-  }
+  $$(".lang-flag-btn[data-lang]").forEach(b => b.classList.toggle("active", b.dataset.lang === state.lang));
 
   const bleBtn = $("#bleBtn");
   if (bleBtn){
@@ -731,13 +724,6 @@ function setLang(lang){
   // Runtime connect screen
   const ct = document.querySelector(".connect-text"); if (ct) ct.textContent = t.runtimeConnectText;
   const cb = $("#connectBtn"); if (cb) cb.textContent = t.runtimeConnectBtn;
-}
-
-function cycleLang(){
-  const i = LANGS.indexOf(state.lang || "en");
-  const next = LANGS[(i + 1) % LANGS.length];
-  setLang(next);
-  if (typeof toast === "function") toast((LANG_ICON[next]||"🌍") + " " + (LANG_NAME[next]||next), "success");
 }
 
 // ---- Export / Import JSON layout ----
@@ -1851,7 +1837,6 @@ try{ placeToolbarWhereHintWas(); }catch(e){}
   }
   const exp = $('#exportJsonBtn'); if (exp) exp.addEventListener('click', exportLayoutJson);
   const imp = $('#importJsonBtn'); if (imp) imp.addEventListener('click', () => $('#jsonFileInput').click());
-  const lb = $('#langBtn'); if (lb) lb.addEventListener('click', cycleLang);
   $('#modalClose').onclick = () => $('#modalBg').classList.remove('show');
   $('#modalBg').onclick = e => { if (e.target === $('#modalBg')) $('#modalBg').classList.remove('show'); };
   $('#copyBtn').onclick = () => { navigator.clipboard.writeText($('#modalCode').textContent); toast('📋 Copied!', 'success'); };

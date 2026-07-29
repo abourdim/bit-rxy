@@ -5876,3 +5876,15 @@ body.theme-light .builder-side .palette-card-toggle{ color: var(--ds-text) !impo
 body.dev-mode #logTab{ display: inline-flex !important; }
 body.dev-mode #logCard:not(.collapsed){ display: flex !important; flex-direction: column !important; }
 
+/* Language flag picker (matches bit-bot / talking-robot) */
+.lang-picker{ display:flex; gap:4px; align-items:center; }
+.lang-flag-btn{
+  display:flex; align-items:center; justify-content:center;
+  width:32px; height:24px; padding:2px; border-radius:6px;
+  border:1px solid rgba(255,255,255,0.12); background:rgba(255,255,255,0.04);
+  cursor:pointer; transition:border-color .15s, background .15s;
+}
+.lang-flag-btn svg{ display:block; border-radius:3px; }
+.lang-flag-btn:hover{ background:rgba(255,255,255,0.1); }
+.lang-flag-btn.active{ border-color:#22c55e; background:rgba(34,197,94,0.15); }
+
