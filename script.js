@@ -4362,10 +4362,18 @@ function downloadCode() {
   toast('💾 Downloaded!', 'success');
 }
 
-function toast(msg, type = '') {
+function toast(msg, type = '', duration = 2500) {
   const t = $('#toast'); t.textContent = msg;
   t.className = `toast ${type} show`;
-  setTimeout(() => t.classList.remove('show'), 2500);
+  clearTimeout(t._hideTimer);
+  t._hideTimer = setTimeout(() => t.classList.remove('show'), duration);
+}
+
+// iOS (incl. iPadOS reporting as MacIntel) never implements Web Bluetooth,
+// in Safari or any other iOS browser, since they all run on WebKit.
+function isIOS() {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 }
 
 
@@ -4425,6 +4433,14 @@ function hideLoading(){
 // BLE Connection
 async function connectBle() {
   console.log('[BLE] Starting connection...');
+  if (!navigator.bluetooth) {
+    if (isIOS()) {
+      toast('iOS Safari can\'t do Bluetooth — get the free "Bluefy" app from the App Store and open this page there instead.', 'error', 7000);
+    } else {
+      toast('Web Bluetooth not supported. Use Chrome or Edge on desktop/Android.', 'error', 5000);
+    }
+    return;
+  }
   state._allowLoadingOverlay = true;
   try {
     console.log('[BLE] Requesting device...');
