@@ -345,13 +345,13 @@ function sleep(ms) {
 // Main flash function
 async function flashToMicrobit() {
   if (flashState.isFlashing) {
-    toast('Flash already in progress', 'warning');
+    toast(tr('toast.flashInProgress'), 'warning');
     return;
   }
-  
+
   // Check Web Bluetooth support
   if (!navigator.bluetooth) {
-    toast('Web Bluetooth not supported. Use Chrome or Edge on desktop/Android.', 'error');
+    toast(tr('toast.webBtNotSupported'), 'error');
     return;
   }
   
@@ -382,7 +382,7 @@ async function flashToMicrobit() {
     } catch (compileErr) {
       console.error('[Flash] Compile failed:', compileErr);
       // Fallback: offer to open MakeCode
-      toast('Could not compile. Opening MakeCode to compile manually...', 'warning');
+      toast(tr('toast.couldNotCompile'), 'warning');
       
       // Create a MakeCode share URL with the code
       const encoded = encodeURIComponent(code);
@@ -398,7 +398,7 @@ async function flashToMicrobit() {
     await connectForFlash();
     await flashHexToDevice(hexString);
     
-    toast('✅ Flash complete!', 'success');
+    toast(tr('toast.flashComplete'), 'success');
     beepSuccess && beepSuccess();
     
     // Close modal after success
@@ -409,7 +409,7 @@ async function flashToMicrobit() {
     
   } catch (err) {
     console.error('[Flash] Error:', err);
-    toast('Flash failed: ' + err.message, 'error');
+    toast(tr('toast.flashFailed', {err: err.message}), 'error');
     updateFlashUI('Error: ' + err.message, 0);
   } finally {
     flashState.isFlashing = false;
@@ -420,7 +420,7 @@ async function flashToMicrobit() {
 // Alternative: Direct USB flashing via WebUSB
 async function flashViaUSB() {
   if (!navigator.usb) {
-    toast('WebUSB not supported. Use Chrome or Edge.', 'error');
+    toast(tr('toast.webUsbNotSupported'), 'error');
     return;
   }
   
@@ -454,11 +454,11 @@ async function flashViaUSB() {
     a.click();
     URL.revokeObjectURL(url);
     
-    toast('Hex downloaded! Drag it to your micro:bit drive.', 'success');
+    toast(tr('toast.hexDownloaded'), 'success');
     
   } catch (err) {
     console.error('[USB Flash] Error:', err);
-    toast('USB flash error: ' + err.message, 'error');
+    toast(tr('toast.usbFlashError', {err: err.message}), 'error');
   }
 }
 
@@ -612,67 +612,357 @@ wrap.style.width = newW + 'px';
 const I18N = {
   en: {
     build: "✏️ Build", play: "▶️ Play",
+    subtitle: "Build your own controller",
+    soundOn: "Sound On", soundOff: "Sound Off",
     chooseTpl: "🎨 Choose a Template!",
     pickTpl: "Pick one to start building your remote",
     templates: { gamepad:"Game Pad", robot:"Robot", mixer:"DJ Mixer", racing:"Race Car", lights:"Lights", blank:"Start Fresh" },
-    buttons: { demo:"🎮 Try All Widgets!", export:"📦 Export", import:"📂 Import", code:"📄 Code" },
+    buttons: { demo:"🎮 Try All Widgets!", export:"📦 Export", import:"📂 Import", templates:"🎨 Templates", code:"📄 Code" },
     hint: "👆 Tap a widget below, then tap the board to place it!",
+    titlePlaceholder: "🏷️ Name your remote...",
+    toolbar: {
+      history: "History", layout: "Layout", theme: "Theme",
+      undo: "Undo", undoTitle: "Undo (Ctrl+Z)",
+      redo: "Redo", redoTitle: "Redo (Ctrl+Y)",
+      tidy: "Tidy", tidyTitle: "Auto-arrange widgets"
+    },
+    themeNames: { dark:"Dark", ocean:"Ocean", space:"Space", candy:"Fire", forest:"Forest" },
+    themeTitles: { dark:"Dark theme", ocean:"Ocean theme", space:"Space theme", candy:"Fire theme", forest:"Forest theme" },
+    widgets: { button:"Button", slider:"Slider", toggle:"Switch", joystick:"Joystick", dpad:"D-Pad", xypad:"XY Pad", led:"Light", label:"Label", gauge:"Gauge", graph:"Graph", battery:"Battery", timer:"Timer" },
     propsTitle: "🛠️ Widget Properties",
-    propsEmpty: "Select a widget to edit it.",
+    propsCollapseTitle: "Collapse",
+    propsEmptyTitle: "Nothing selected",
+    propsEmptyHint: "Tap any widget on the canvas to change its color, label, and size.",
+    backToBuild: "← Back to Build",
+    arrange: "📐 Arrange", arrangeDone: "✓ Done",
+    fullscreen: "⛶ Fullscreen",
+    arrangeHint: '👆 Drag widgets to rearrange • Tap "Done" when finished',
     connect: "Tap to Connect!", connected: "Connected! 🎉",
     runtimeConnectText: "Connect your micro:bit!",
     runtimeConnectBtn: "🔗 Connect",
+    quickActions: { duplicate:"Duplicate", color:"Random Color", lock:"Lock/Unlock", front:"Bring Front", back:"Send Back", delete:"Delete" },
+    quickActionsTitles: { duplicate:"Duplicate", color:"Change color", lock:"Lock/Unlock", front:"Bring to front", back:"Send to back", delete:"Delete" },
+    tutorial: {
+      steps: [
+        { title:"Welcome!", text:"Let's build your first micro:bit remote control! It's easy and fun!" },
+        { title:"Pick a Widget", text:"Tap any widget below (like Button or Slider) to select it." },
+        { title:"Place It", text:"Then tap on the canvas to place your widget. You can drag it around!" },
+        { title:"Connect & Play!", text:"When ready, go to Play mode and connect your micro:bit. Have fun!" }
+      ],
+      next: "Next →", start: "Start Building! 🚀", skip: "Skip Tutorial"
+    },
+    loadingTitle: "🧩 Loading your remote...",
+    loadingSub: "Getting layout from micro:bit",
+    loadingRequesting: "Requesting layout (GETCFG)…",
+    loadingReceiving: "Receiving layout…",
+    loadingDecoding: "Decoding layout…",
+    loadingReady: "Ready!",
+    codeModal: {
+      copy:"📋 Copy", save:"💾 Save", flash:"⚡ Flash to micro:bit", close:"✖️ Close",
+      titleDefault:"📄 Your micro:bit Code",
+      titleSub:"Copy to MakeCode or click ⚡Flash to send directly to micro:bit via Bluetooth",
+      titleDemo:"Demo Ready! Copy this code to MakeCode:"
+    },
     toastExport: "📦 Exported JSON!",
     toastImport: "📂 Imported!",
-    toastImportFail: "❌ Import failed"
+    toastImportFail: "❌ Import failed",
+    toast: {
+      addWidgetsFirst: "👆 Add some widgets first!",
+      demoLoaded: "Demo loaded with ALL 12 widgets!",
+      widgetSelected: "✅ {icon} selected! Tap canvas to place",
+      widgetAdded: "✨ {icon} added!",
+      deletedWidgets: "🗑️ Deleted widgets",
+      selectedAll: "Selected all {n} widgets",
+      restoredProject: "📂 Restored your last project!",
+      copied: "📋 Copied!",
+      widgetsArranged: "✨ Widgets arranged!",
+      nothingToArrange: "No widgets to arrange!",
+      themeChanged: "🎨 Theme: {theme}",
+      templateLoaded: "✅ Template loaded!",
+      canvasReady: "✨ Canvas ready! Pick a widget below",
+      nothingToUndo: "Nothing to undo",
+      undoDone: "↩️ Undo",
+      nothingToRedo: "Nothing to redo",
+      redoDone: "↪️ Redo",
+      downloaded: "💾 Downloaded!",
+      idMustBeUnique: "❌ ID must be unique",
+      idUpdated: "✅ ID updated",
+      modelUpdated: "✅ Model updated",
+      modelAppliedAll: "✨ Applied model to all {type}s",
+      imageUploaded: "🖼️ Image uploaded",
+      selectWidgetFirst: "👆 Select a widget first!",
+      deleted: "🗑️ Deleted!",
+      orientationSwapped: "🔄 Orientation swapped!",
+      sizeReset: "↩️ Size reset to default!",
+      sizeSet: "📐 Size set to {w}×{h}",
+      flashInProgress: "Flash already in progress",
+      webBtNotSupported: "Web Bluetooth not supported. Use Chrome or Edge on desktop/Android.",
+      iosNoBluetooth: 'iOS Safari can\'t do Bluetooth — get the free "Bluefy" app from the App Store and open this page there instead.',
+      couldNotCompile: "Could not compile. Opening MakeCode to compile manually...",
+      flashComplete: "✅ Flash complete!",
+      flashFailed: "Flash failed: {err}",
+      webUsbNotSupported: "WebUSB not supported. Use Chrome or Edge.",
+      hexDownloaded: "Hex downloaded! Drag it to your micro:bit drive.",
+      usbFlashError: "USB flash error: {err}",
+      connected: "Connected!",
+      connectionFailed: "Connection failed",
+      disconnected: "Disconnected",
+      remoteLoaded: "Remote loaded!",
+      configError: "Config error",
+      arrangeModeOn: "📐 Arrange mode ON - drag widgets to move",
+      layoutSaved: "✅ Layout saved!",
+      duplicated: "📋 Duplicated!",
+      newColor: "🎨 New color!",
+      broughtFront: "⬆️ Brought to front",
+      sentBack: "⬇️ Sent to back",
+      locked: "🔒 Locked",
+      unlocked: "🔓 Unlocked"
+    }
   },
   fr: {
     build: "✏️ Construire", play: "▶️ Jouer",
+    subtitle: "Crée ta propre télécommande",
+    soundOn: "Son activé", soundOff: "Son coupé",
     chooseTpl: "🎨 Choisis un modèle !",
     pickTpl: "Prends-en un pour commencer",
     templates: { gamepad:"Manette", robot:"Robot", mixer:"DJ Mixer", racing:"Course", lights:"Lumières", blank:"Nouveau" },
-    buttons: { demo:"🎮 Démo widgets !", export:"📦 Export", import:"📂 Import", code:"📄 Code" },
+    buttons: { demo:"🎮 Démo widgets !", export:"📦 Export", import:"📂 Import", templates:"🎨 Modèles", code:"📄 Code" },
     hint: "👆 Choisis un widget, puis tape sur le tableau pour le placer !",
+    titlePlaceholder: "🏷️ Nomme ta télécommande...",
+    toolbar: {
+      history: "Historique", layout: "Disposition", theme: "Thème",
+      undo: "Annuler", undoTitle: "Annuler (Ctrl+Z)",
+      redo: "Rétablir", redoTitle: "Rétablir (Ctrl+Y)",
+      tidy: "Ranger", tidyTitle: "Ranger automatiquement les widgets"
+    },
+    themeNames: { dark:"Sombre", ocean:"Océan", space:"Espace", candy:"Feu", forest:"Forêt" },
+    themeTitles: { dark:"Thème sombre", ocean:"Thème océan", space:"Thème espace", candy:"Thème feu", forest:"Thème forêt" },
+    widgets: { button:"Bouton", slider:"Curseur", toggle:"Interrupteur", joystick:"Joystick", dpad:"Croix directionnelle", xypad:"Pavé XY", led:"Lumière", label:"Texte", gauge:"Jauge", graph:"Graphique", battery:"Batterie", timer:"Minuteur" },
     propsTitle: "🛠️ Propriétés",
-    propsEmpty: "Sélectionne un widget pour l’éditer.",
+    propsCollapseTitle: "Réduire",
+    propsEmptyTitle: "Rien de sélectionné",
+    propsEmptyHint: "Touche un widget sur le tableau pour changer sa couleur, son texte et sa taille.",
+    backToBuild: "← Retour à la Construction",
+    arrange: "📐 Organiser", arrangeDone: "✓ Terminé",
+    fullscreen: "⛶ Plein écran",
+    arrangeHint: '👆 Glisse les widgets pour les réorganiser • Appuie sur « Terminé » à la fin',
     connect: "Connecter!", connected: "Connecté! 🎉",
     runtimeConnectText: "Connecte ton micro:bit !",
     runtimeConnectBtn: "🔗 Connecter",
+    quickActions: { duplicate:"Dupliquer", color:"Couleur aléatoire", lock:"Verrouiller/Déverrouiller", front:"Mettre devant", back:"Mettre derrière", delete:"Supprimer" },
+    quickActionsTitles: { duplicate:"Dupliquer", color:"Changer la couleur", lock:"Verrouiller/Déverrouiller", front:"Mettre devant", back:"Mettre derrière", delete:"Supprimer" },
+    tutorial: {
+      steps: [
+        { title:"Bienvenue !", text:"Construisons ta première télécommande micro:bit ! C'est facile et amusant !" },
+        { title:"Choisis un widget", text:"Touche un widget ci-dessous (comme Bouton ou Curseur) pour le sélectionner." },
+        { title:"Place-le", text:"Puis touche le tableau pour placer ton widget. Tu peux le déplacer !" },
+        { title:"Connecte et joue !", text:"Quand tu es prêt, va en mode Jouer et connecte ton micro:bit. Amuse-toi bien !" }
+      ],
+      next: "Suivant →", start: "Commence à construire ! 🚀", skip: "Passer le tutoriel"
+    },
+    loadingTitle: "🧩 Chargement de ta télécommande...",
+    loadingSub: "Récupération depuis le micro:bit",
+    loadingRequesting: "Demande de la disposition (GETCFG)…",
+    loadingReceiving: "Réception de la disposition…",
+    loadingDecoding: "Décodage de la disposition…",
+    loadingReady: "Prêt !",
+    codeModal: {
+      copy:"📋 Copier", save:"💾 Enregistrer", flash:"⚡ Flasher le micro:bit", close:"✖️ Fermer",
+      titleDefault:"📄 Ton code micro:bit",
+      titleSub:"Copie dans MakeCode ou clique sur ⚡Flasher pour envoyer directement au micro:bit via Bluetooth",
+      titleDemo:"Démo prête ! Copie ce code dans MakeCode :"
+    },
     toastExport: "📦 JSON exporté !",
     toastImport: "📂 Importé !",
-    toastImportFail: "❌ Import impossible"
+    toastImportFail: "❌ Import impossible",
+    toast: {
+      addWidgetsFirst: "👆 Ajoute d'abord des widgets !",
+      demoLoaded: "Démo chargée avec les 12 widgets !",
+      widgetSelected: "✅ {icon} sélectionné ! Touche le tableau pour le placer",
+      widgetAdded: "✨ {icon} ajouté !",
+      deletedWidgets: "🗑️ Widgets supprimés",
+      selectedAll: "{n} widgets sélectionnés",
+      restoredProject: "📂 Ton dernier projet a été restauré !",
+      copied: "📋 Copié !",
+      widgetsArranged: "✨ Widgets organisés !",
+      nothingToArrange: "Aucun widget à organiser !",
+      themeChanged: "🎨 Thème : {theme}",
+      templateLoaded: "✅ Modèle chargé !",
+      canvasReady: "✨ Tableau prêt ! Choisis un widget ci-dessous",
+      nothingToUndo: "Rien à annuler",
+      undoDone: "↩️ Annulé",
+      nothingToRedo: "Rien à rétablir",
+      redoDone: "↪️ Rétabli",
+      downloaded: "💾 Téléchargé !",
+      idMustBeUnique: "❌ L'ID doit être unique",
+      idUpdated: "✅ ID mis à jour",
+      modelUpdated: "✅ Modèle mis à jour",
+      modelAppliedAll: "✨ Modèle appliqué à tous les {type}",
+      imageUploaded: "🖼️ Image téléchargée",
+      selectWidgetFirst: "👆 Sélectionne d'abord un widget !",
+      deleted: "🗑️ Supprimé !",
+      orientationSwapped: "🔄 Orientation inversée !",
+      sizeReset: "↩️ Taille réinitialisée !",
+      sizeSet: "📐 Taille réglée sur {w}×{h}",
+      flashInProgress: "Flash déjà en cours",
+      webBtNotSupported: "Web Bluetooth non supporté. Utilise Chrome ou Edge sur ordinateur/Android.",
+      iosNoBluetooth: 'iOS Safari ne gère pas le Bluetooth — installe l\'appli gratuite "Bluefy" depuis l\'App Store et ouvre cette page avec.',
+      couldNotCompile: "Compilation impossible. Ouverture de MakeCode pour compiler manuellement...",
+      flashComplete: "✅ Flash terminé !",
+      flashFailed: "Échec du flash : {err}",
+      webUsbNotSupported: "WebUSB non supporté. Utilise Chrome ou Edge.",
+      hexDownloaded: "Fichier téléchargé ! Glisse-le sur le lecteur micro:bit.",
+      usbFlashError: "Erreur USB : {err}",
+      connected: "Connecté !",
+      connectionFailed: "Échec de connexion",
+      disconnected: "Déconnecté",
+      remoteLoaded: "Télécommande chargée !",
+      configError: "Erreur de configuration",
+      arrangeModeOn: "📐 Mode organisation activé - glisse les widgets",
+      layoutSaved: "✅ Disposition enregistrée !",
+      duplicated: "📋 Dupliqué !",
+      newColor: "🎨 Nouvelle couleur !",
+      broughtFront: "⬆️ Mis devant",
+      sentBack: "⬇️ Mis derrière",
+      locked: "🔒 Verrouillé",
+      unlocked: "🔓 Déverrouillé"
+    }
   },
   ar: {
     build: "✏️ بناء", play: "▶️ تشغيل",
+    subtitle: "اصنع جهاز التحكم الخاص بك",
+    soundOn: "الصوت مفعّل", soundOff: "الصوت متوقف",
     chooseTpl: "🎨 اختر قالبًا!",
     pickTpl: "اختر واحدًا للبدء",
     templates: { gamepad:"ذراع تحكم", robot:"روبوت", mixer:"موسيقى", racing:"سباق", lights:"أضواء", blank:"ابدأ" },
-    buttons: { demo:"🎮 عرض كل الأدوات!", export:"📦 تصدير", import:"📂 استيراد", code:"📄 الكود" },
+    buttons: { demo:"🎮 عرض كل الأدوات!", export:"📦 تصدير", import:"📂 استيراد", templates:"🎨 قوالب", code:"📄 الكود" },
     hint: "👆 اختر أداة، ثم اضغط على اللوحة لوضعها!",
+    titlePlaceholder: "🏷️ اسمِّ جهاز التحكم...",
+    toolbar: {
+      history: "السجل", layout: "التخطيط", theme: "السمة",
+      undo: "تراجع", undoTitle: "تراجع (Ctrl+Z)",
+      redo: "إعادة", redoTitle: "إعادة (Ctrl+Y)",
+      tidy: "ترتيب", tidyTitle: "ترتيب الأدوات تلقائيًا"
+    },
+    themeNames: { dark:"داكن", ocean:"المحيط", space:"الفضاء", candy:"النار", forest:"الغابة" },
+    themeTitles: { dark:"السمة الداكنة", ocean:"سمة المحيط", space:"سمة الفضاء", candy:"سمة النار", forest:"سمة الغابة" },
+    widgets: { button:"زر", slider:"منزلق", toggle:"مفتاح", joystick:"عصا التحكم", dpad:"لوحة اتجاه", xypad:"لوحة XY", led:"ضوء", label:"تسمية", gauge:"مقياس", graph:"رسم بياني", battery:"بطارية", timer:"مؤقت" },
     propsTitle: "🛠️ خصائص الأداة",
-    propsEmpty: "اختر أداة لتعديلها.",
+    propsCollapseTitle: "طي",
+    propsEmptyTitle: "لم يتم اختيار شيء",
+    propsEmptyHint: "اضغط على أي أداة في اللوحة لتغيير لونها ونصها وحجمها.",
+    backToBuild: "→ العودة للبناء",
+    arrange: "📐 ترتيب", arrangeDone: "✓ تم",
+    fullscreen: "⛶ ملء الشاشة",
+    arrangeHint: '👆 اسحب الأدوات لإعادة ترتيبها • اضغط "تم" عند الانتهاء',
     connect: "اضغط للاتصال!", connected: "متصل! 🎉",
     runtimeConnectText: "اتصل بالـ micro:bit!",
     runtimeConnectBtn: "🔗 اتصال",
+    quickActions: { duplicate:"تكرار", color:"لون عشوائي", lock:"قفل/إلغاء القفل", front:"إحضار للأمام", back:"إرسال للخلف", delete:"حذف" },
+    quickActionsTitles: { duplicate:"تكرار", color:"تغيير اللون", lock:"قفل/إلغاء القفل", front:"إحضار للأمام", back:"إرسال للخلف", delete:"حذف" },
+    tutorial: {
+      steps: [
+        { title:"أهلاً بك!", text:"لنصنع أول جهاز تحكم micro:bit خاص بك! الأمر سهل وممتع!" },
+        { title:"اختر أداة", text:"اضغط على أي أداة أدناه (مثل الزر أو المنزلق) لاختيارها." },
+        { title:"ضعها", text:"ثم اضغط على اللوحة لوضع أداتك. يمكنك سحبها لتحريكها!" },
+        { title:"اتصل والعب!", text:"عندما تكون جاهزًا، اذهب لوضع التشغيل واتصل بالـ micro:bit. استمتع!" }
+      ],
+      next: "→ التالي", start: "🚀 ابدأ البناء!", skip: "تخطي البرنامج التعليمي"
+    },
+    loadingTitle: "🧩 جارٍ تحميل جهاز التحكم...",
+    loadingSub: "الحصول على التخطيط من micro:bit",
+    loadingRequesting: "جارٍ طلب التخطيط (GETCFG)…",
+    loadingReceiving: "جارٍ استقبال التخطيط…",
+    loadingDecoding: "جارٍ فك ترميز التخطيط…",
+    loadingReady: "جاهز!",
+    codeModal: {
+      copy:"📋 نسخ", save:"💾 حفظ", flash:"⚡ تحميل إلى micro:bit", close:"✖️ إغلاق",
+      titleDefault:"📄 كود الـ micro:bit الخاص بك",
+      titleSub:"انسخ إلى MakeCode أو اضغط ⚡تحميل لإرساله مباشرة إلى micro:bit عبر البلوتوث",
+      titleDemo:"العرض التجريبي جاهز! انسخ هذا الكود إلى MakeCode:"
+    },
     toastExport: "📦 تم التصدير!",
     toastImport: "📂 تم الاستيراد!",
-    toastImportFail: "❌ فشل الاستيراد"
+    toastImportFail: "❌ فشل الاستيراد",
+    toast: {
+      addWidgetsFirst: "👆 أضف بعض الأدوات أولاً!",
+      demoLoaded: "تم تحميل عرض بجميع الأدوات الـ12!",
+      widgetSelected: "✅ تم اختيار {icon}! اضغط على اللوحة لوضعها",
+      widgetAdded: "✨ تمت إضافة {icon}!",
+      deletedWidgets: "🗑️ تم حذف الأدوات",
+      selectedAll: "تم اختيار جميع الأدوات ({n})",
+      restoredProject: "📂 تم استعادة مشروعك الأخير!",
+      copied: "📋 تم النسخ!",
+      widgetsArranged: "✨ تم ترتيب الأدوات!",
+      nothingToArrange: "لا توجد أدوات للترتيب!",
+      themeChanged: "🎨 السمة: {theme}",
+      templateLoaded: "✅ تم تحميل القالب!",
+      canvasReady: "✨ اللوحة جاهزة! اختر أداة أدناه",
+      nothingToUndo: "لا يوجد ما يمكن التراجع عنه",
+      undoDone: "↩️ تم التراجع",
+      nothingToRedo: "لا يوجد ما يمكن إعادته",
+      redoDone: "↪️ تمت الإعادة",
+      downloaded: "💾 تم التنزيل!",
+      idMustBeUnique: "❌ المعرف يجب أن يكون فريدًا",
+      idUpdated: "✅ تم تحديث المعرف",
+      modelUpdated: "✅ تم تحديث النموذج",
+      modelAppliedAll: "✨ تم تطبيق النموذج على جميع {type}",
+      imageUploaded: "🖼️ تم رفع الصورة",
+      selectWidgetFirst: "👆 اختر أداة أولاً!",
+      deleted: "🗑️ تم الحذف!",
+      orientationSwapped: "🔄 تم تبديل الاتجاه!",
+      sizeReset: "↩️ تمت إعادة الحجم الافتراضي!",
+      sizeSet: "📐 تم ضبط الحجم على {w}×{h}",
+      flashInProgress: "التحميل قيد التنفيذ بالفعل",
+      webBtNotSupported: "المتصفح لا يدعم البلوتوث. استخدم Chrome أو Edge على الكمبيوتر أو أندرويد.",
+      iosNoBluetooth: 'متصفح Safari على iOS لا يدعم البلوتوث — حمّل تطبيق "Bluefy" المجاني من App Store وافتح هذه الصفحة منه.',
+      couldNotCompile: "تعذّرت البرمجة. جارٍ فتح MakeCode للبرمجة يدويًا...",
+      flashComplete: "✅ اكتمل التحميل!",
+      flashFailed: "فشل التحميل: {err}",
+      webUsbNotSupported: "المتصفح لا يدعم WebUSB. استخدم Chrome أو Edge.",
+      hexDownloaded: "تم تنزيل الملف! اسحبه إلى قرص micro:bit.",
+      usbFlashError: "خطأ في USB: {err}",
+      connected: "تم الاتصال!",
+      connectionFailed: "فشل الاتصال",
+      disconnected: "تم قطع الاتصال",
+      remoteLoaded: "تم تحميل جهاز التحكم!",
+      configError: "خطأ في الإعدادات",
+      arrangeModeOn: "📐 تفعيل وضع الترتيب - اسحب الأدوات لتحريكها",
+      layoutSaved: "✅ تم حفظ التخطيط!",
+      duplicated: "📋 تم التكرار!",
+      newColor: "🎨 لون جديد!",
+      broughtFront: "⬆️ تم الإحضار للأمام",
+      sentBack: "⬇️ تم الإرسال للخلف",
+      locked: "🔒 مقفل",
+      unlocked: "🔓 غير مقفل"
+    }
   }
 };
+
+// tr(key.path, {vars}) — dotted-path lookup with {placeholder} interpolation
+function tr(path, vars) {
+  const t = I18N[state.lang] || I18N.en;
+  const fallback = I18N.en;
+  let node = t, fb = fallback;
+  for (const part of path.split('.')) {
+    node = node && node[part];
+    fb = fb && fb[part];
+  }
+  let str = (node !== undefined ? node : fb);
+  if (typeof str !== 'string') return str;
+  if (vars) {
+    for (const k in vars) str = str.split('{' + k + '}').join(vars[k]);
+  }
+  return str;
+}
 
 const LANGS = ["en","fr","ar"];
 
 function saveLang() { try { localStorage.setItem("kid_lang", state.lang); } catch(e){} }
 function loadLang() { try { return localStorage.getItem("kid_lang"); } catch(e){ return null; } }
-function detectBrowserLang(){
-  const n = String(navigator.language || "en").toLowerCase();
-  if (n.startsWith("fr")) return "fr";
-  if (n.startsWith("ar")) return "ar";
-  return "en";
-}
 
 function setLang(lang){
-  state.lang = LANGS.includes(lang) ? lang : "en";
+  state.lang = LANGS.includes(lang) ? lang : "fr";
   saveLang();
   const t = I18N[state.lang] || I18N.en;
 
@@ -706,8 +996,7 @@ function setLang(lang){
   if (hint) hint.textContent = t.hint;
 
   // Props panel
-  const pt = document.querySelector(".props-title"); if (pt) pt.textContent = t.propsTitle;
-  const pe = $("#propsEmpty"); if (pe) pe.textContent = t.propsEmpty;
+  const pt = document.querySelector(".props-title-text"); if (pt) pt.textContent = t.propsTitle;
 
   // Template modal
   const tm = $("#templateModal");
@@ -724,13 +1013,86 @@ function setLang(lang){
   // Runtime connect screen
   const ct = document.querySelector(".connect-text"); if (ct) ct.textContent = t.runtimeConnectText;
   const cb = $("#connectBtn"); if (cb) cb.textContent = t.runtimeConnectBtn;
+
+  // Subtitle
+  const sub = document.querySelector(".hero-subtitle"); if (sub) sub.textContent = t.subtitle;
+
+  // Sound button
+  if (typeof updateSoundUI === "function") updateSoundUI();
+
+  // Title input placeholder
+  const titleInput = $("#titleInput"); if (titleInput) titleInput.placeholder = t.titlePlaceholder;
+
+  // Actions card
+  const templateBtn = $("#templateBtn"); if (templateBtn) templateBtn.textContent = t.buttons.templates;
+
+  // Widget palette names
+  document.querySelectorAll(".palette-item[data-type]").forEach(item => {
+    const nameEl = item.querySelector(".palette-name");
+    const key = item.dataset.type;
+    if (nameEl && t.widgets[key]) nameEl.textContent = t.widgets[key];
+  });
+
+  // Build toolbar
+  const historyGroup = document.querySelector('.build-toolbar-group[aria-label="History"]');
+  if (historyGroup) historyGroup.setAttribute("aria-label", t.toolbar.history);
+  const layoutGroup = document.querySelector('.build-toolbar-group[aria-label="Layout"]');
+  if (layoutGroup) layoutGroup.setAttribute("aria-label", t.toolbar.layout);
+  const themeLabel = document.querySelector(".build-toolbar-group-label"); if (themeLabel) themeLabel.textContent = t.toolbar.theme;
+  const undoBtn = $("#undoBtn");
+  if (undoBtn) { undoBtn.title = t.toolbar.undoTitle; const l = undoBtn.querySelector(".btn-label"); if (l) l.textContent = t.toolbar.undo; }
+  const redoBtn = $("#redoBtn");
+  if (redoBtn) { redoBtn.title = t.toolbar.redoTitle; const l = redoBtn.querySelector(".btn-label"); if (l) l.textContent = t.toolbar.redo; }
+  const tidyBtn = $("#autoArrangeBtn");
+  if (tidyBtn) { tidyBtn.title = t.toolbar.tidyTitle; const l = tidyBtn.querySelector(".btn-label"); if (l) l.textContent = t.toolbar.tidy; }
+  document.querySelectorAll(".theme-dot[data-theme]").forEach(dot => {
+    const key = dot.dataset.theme;
+    if (t.themeTitles[key]) dot.title = t.themeTitles[key];
+  });
+
+  // Props panel empty state + collapse title
+  const propsCollapseBtn = $("#propsCollapseBtn"); if (propsCollapseBtn) propsCollapseBtn.title = t.propsCollapseTitle;
+  const propsEmptyTitle = document.querySelector(".props-empty-title"); if (propsEmptyTitle) propsEmptyTitle.textContent = t.propsEmptyTitle;
+  const propsEmptyHint = document.querySelector(".props-empty-hint"); if (propsEmptyHint) propsEmptyHint.textContent = t.propsEmptyHint;
+
+  // Runtime view
+  const backBtn = $("#backToBuildBtn"); if (backBtn) backBtn.textContent = t.backToBuild;
+  const arrangeBtn = $("#arrangeModeBtn"); if (arrangeBtn) arrangeBtn.textContent = state.arrangeMode ? t.arrangeDone : t.arrange;
+  const fsBtn = $("#fullscreenBtn"); if (fsBtn) fsBtn.textContent = t.fullscreen;
+  const arrangeHint = $("#arrangeHint"); if (arrangeHint) arrangeHint.textContent = t.arrangeHint;
+
+  // Quick actions menu (runtime/arrange context menu)
+  const quickMenu = $("#quickActionsMenu");
+  if (quickMenu) {
+    quickMenu.querySelectorAll(".quick-action-btn[data-action]").forEach(btn => {
+      const key = btn.dataset.action;
+      if (t.quickActions[key]) {
+        const icon = btn.textContent.trim().split(" ")[0];
+        btn.textContent = icon + " " + t.quickActions[key];
+      }
+    });
+  }
+
+  // Tutorial (re-render current step if visible)
+  if (typeof updateTutorialStep === "function") updateTutorialStep();
+  const tutorialSkip = $("#tutorialSkipBtn"); if (tutorialSkip) tutorialSkip.textContent = t.tutorial.skip;
+
+  // Loading overlay
+  const loadingTitle = document.querySelector(".loading-title"); if (loadingTitle) loadingTitle.textContent = t.loadingTitle;
+  const loadingSub = $("#loadingSub"); if (loadingSub) loadingSub.textContent = t.loadingSub;
+
+  // Code modal buttons
+  const copyBtn = $("#copyBtn"); if (copyBtn) copyBtn.textContent = t.codeModal.copy;
+  const downloadBtn = $("#downloadBtn"); if (downloadBtn) downloadBtn.textContent = t.codeModal.save;
+  const flashBtn = $("#flashBtn"); if (flashBtn) flashBtn.textContent = t.codeModal.flash;
+  const modalClose = $("#modalClose"); if (modalClose) modalClose.textContent = t.codeModal.close;
 }
 
 // ---- Export / Import JSON layout ----
 function exportLayoutJson(){
   const t = I18N[state.lang] || I18N.en;
   if (!state.widgets || state.widgets.length === 0){
-    if (typeof toast === "function") toast("👆 Add some widgets first!", "error");
+    if (typeof toast === "function") toast(tr('toast.addWidgetsFirst'), "error");
     return;
   }
   const title = ($("#titleInput") && $("#titleInput").value) ? $("#titleInput").value : "My Remote";
@@ -980,7 +1342,7 @@ function updateSoundUI(){
   const b = $('#soundBtn');
   if (!b) return;
   b.classList.toggle('connected', state.soundOn);
-  b.querySelector('span:last-child').textContent = state.soundOn ? 'Sound On' : 'Sound Off';
+  b.querySelector('span:last-child').textContent = state.soundOn ? tr('soundOn') : tr('soundOff');
   b.style.opacity = state.soundOn ? '1' : '0.7';
 }
 
@@ -1251,11 +1613,11 @@ function showDemo() {
   $('#connectPrompt').style.display = 'none';
   $('#runtimeContent').style.display = 'flex';
   
-  $('#modalTitle').textContent = 'Demo Ready! Copy this code to MakeCode:';
+  $('#modalTitle').textContent = tr('codeModal.titleDemo');
   $('#modalCode').textContent = generateDemoCode(cfg);
   $('#modalBg').classList.add('show');
-  
-  toast('Demo loaded with ALL 12 widgets!', 'success');
+
+  toast(tr('toast.demoLoaded'), 'success');
 }
 
 function generateDemoCode(cfg) {
@@ -1592,7 +1954,7 @@ try{ placeToolbarWhereHintWas(); }catch(e){}
       $$('.palette-item').forEach(x => x.classList.remove('selected'));
       p.classList.add('selected');
       state.selectedType = p.dataset.type;
-      toast(`✅ ${ICONS[state.selectedType]} selected! Tap canvas to place`, 'success');
+      toast(tr('toast.widgetSelected', {icon: ICONS[state.selectedType]}), 'success');
     };
   });
 
@@ -1681,7 +2043,7 @@ try{ placeToolbarWhereHintWas(); }catch(e){}
       const base = applyWidgetDefaults({ id: `${state.selectedType}${state.nextId++}`, t: state.selectedType, x, y, w, h, label: '' });
       state.widgets.push(base);
       renderWidgets();
-      toast(`✨ ${ICONS[state.selectedType]} added!`, 'success');
+      toast(tr('toast.widgetAdded', {icon: ICONS[state.selectedType]}), 'success');
     } else {
       state.selected = null;
       state.multiSelect = [];
@@ -1735,7 +2097,7 @@ try{ placeToolbarWhereHintWas(); }catch(e){}
         state.selected = null;
         renderWidgets();
         renderPropsPanel();
-        toast('🗑️ Deleted widgets', 'success');
+        toast(tr('toast.deletedWidgets'), 'success');
       } else {
         deleteSelected(); 
       }
@@ -1746,7 +2108,7 @@ try{ placeToolbarWhereHintWas(); }catch(e){}
       e.preventDefault(); 
       state.multiSelect = state.widgets.map(w => w.id);
       updateSelectionUI();
-      toast(`Selected all ${state.widgets.length} widgets`, 'success');
+      toast(tr('toast.selectedAll', {n: state.widgets.length}), 'success');
       return; 
     }
     // Arrow keys: nudge
@@ -1798,9 +2160,10 @@ try{ placeToolbarWhereHintWas(); }catch(e){}
   
     // Templates
   $('#templateBtn').onclick = () => $('#templateModal').classList.remove('hidden');
-  // Language on first load
+  // Language on first load — defaults to French (matches bit-bot/talking-robot/
+  // bit-playground) unless the user has already picked a language before.
   var savedLang = loadLang();
-  setLang(savedLang || state.lang || detectBrowserLang());
+  setLang(savedLang || "fr");
   
   // Try to load saved project first; only show templates if nothing saved
   const hasProject = loadSavedProject();
@@ -1808,7 +2171,7 @@ try{ placeToolbarWhereHintWas(); }catch(e){}
     $('#templateModal').classList.add('hidden');
     renderWidgets();
     renderPropsPanel();
-    toast('📂 Restored your last project!', 'success');
+    toast(tr('toast.restoredProject'), 'success');
   } else {
     $('#templateModal').classList.remove('hidden');
   }
@@ -1839,7 +2202,7 @@ try{ placeToolbarWhereHintWas(); }catch(e){}
   const imp = $('#importJsonBtn'); if (imp) imp.addEventListener('click', () => $('#jsonFileInput').click());
   $('#modalClose').onclick = () => $('#modalBg').classList.remove('show');
   $('#modalBg').onclick = e => { if (e.target === $('#modalBg')) $('#modalBg').classList.remove('show'); };
-  $('#copyBtn').onclick = () => { navigator.clipboard.writeText($('#modalCode').textContent); toast('📋 Copied!', 'success'); };
+  $('#copyBtn').onclick = () => { navigator.clipboard.writeText($('#modalCode').textContent); toast(tr('toast.copied'), 'success'); };
   $('#downloadBtn').onclick = downloadCode;
   
   // Flash button - Bluetooth flashing to micro:bit
@@ -2067,7 +2430,7 @@ document.addEventListener('mozfullscreenchange', () => {
 // === AUTO ARRANGE WIDGETS ===
 function autoArrangeWidgets() {
   if (!state.widgets.length) {
-    toast('No widgets to arrange!', 'error');
+    toast(tr('toast.nothingToArrange'), 'error');
     return;
   }
   
@@ -2100,7 +2463,7 @@ function autoArrangeWidgets() {
   });
   
   renderWidgets();
-  toast('✨ Widgets arranged!', 'success');
+  toast(tr('toast.widgetsArranged'), 'success');
   if (state.soundOn) beepClick();
 }
 
@@ -2153,7 +2516,8 @@ function setAppTheme(theme) {
   
   state.theme = theme;
   try { localStorage.setItem('app_theme', theme); } catch(e) {}
-  toast(`🎨 Theme: ${theme.charAt(0).toUpperCase() + theme.slice(1)}`, 'success');
+  const themeName = tr('themeNames.' + theme) || (theme.charAt(0).toUpperCase() + theme.slice(1));
+  toast(tr('toast.themeChanged', {theme: themeName}), 'success');
 }
 
 // Load saved theme on startup
@@ -2303,7 +2667,7 @@ function setupLongPressActions() {
           randomizeWidgetColor(w);
         } else if (action === 'lock') {
           w.locked = !w.locked;
-          toast(w.locked ? '🔒 Locked' : '🔓 Unlocked', 'success');
+          toast(w.locked ? tr('toast.locked') : tr('toast.unlocked'), 'success');
           renderWidgets();
         } else if (action === 'front') {
           bringToFront(w);
@@ -2315,7 +2679,7 @@ function setupLongPressActions() {
           state.selected = null;
           renderWidgets();
           renderPropsPanel();
-          toast('🗑️ Deleted', 'success');
+          toast(tr('toast.deleted'), 'success');
         }
         
         menu.remove();
@@ -2369,7 +2733,7 @@ function duplicateWidget(w) {
   state.widgets.push(newW);
   state.selected = newW.id;
   renderWidgets();
-  toast('📋 Duplicated!', 'success');
+  toast(tr('toast.duplicated'), 'success');
 }
 
 function randomizeWidgetColor(w) {
@@ -2378,7 +2742,7 @@ function randomizeWidgetColor(w) {
   w.color = colors[Math.floor(Math.random() * colors.length)];
   renderWidgets();
   renderPropsPanel();
-  toast('🎨 New color!', 'success');
+  toast(tr('toast.newColor'), 'success');
 }
 
 function bringToFront(w) {
@@ -2388,7 +2752,7 @@ function bringToFront(w) {
     state.widgets.splice(idx, 1);
     state.widgets.push(w);
     renderWidgets();
-    toast('⬆️ Brought to front', 'success');
+    toast(tr('toast.broughtFront'), 'success');
   }
 }
 
@@ -2399,7 +2763,7 @@ function sendToBack(w) {
     state.widgets.splice(idx, 1);
     state.widgets.unshift(w);
     renderWidgets();
-    toast('⬇️ Sent to back', 'success');
+    toast(tr('toast.sentBack'), 'success');
   }
 }
 
@@ -2474,8 +2838,8 @@ function selectTemplate(name) {
 
     if (typeof hideLoadOverlay === 'function') hideLoadOverlay();
 
-    if (name === 'blank') toast('✨ Canvas ready! Pick a widget below', 'success');
-    else toast('✅ Template loaded!', 'success');
+    if (name === 'blank') toast(tr('toast.canvasReady'), 'success');
+    else toast(tr('toast.templateLoaded'), 'success');
   }, 250);
 }
 
@@ -2511,32 +2875,32 @@ function handleQuickAction(action) {
       state.widgets.push(newW);
       state.selected = newW.id;
       renderWidgets();
-      toast('📋 Duplicated!', 'success');
+      toast(tr('toast.duplicated'), 'success');
       break;
     case 'color':
       const colors = ['#ff6b6b', '#feca57', '#48dbfb', '#ff9ff3', '#54a0ff', '#00e676', '#ff9100', '#b388ff'];
       w.color = colors[Math.floor(Math.random() * colors.length)];
       renderWidgets();
-      toast('🎨 New color!', 'success');
+      toast(tr('toast.newColor'), 'success');
       break;
     case 'lock':
       w.locked = !w.locked;
       renderWidgets();
-      toast(w.locked ? '🔒 Locked' : '🔓 Unlocked', 'success');
+      toast(w.locked ? tr('toast.locked') : tr('toast.unlocked'), 'success');
       break;
     case 'front':
       const idx = state.widgets.indexOf(w);
       state.widgets.splice(idx, 1);
       state.widgets.push(w);
       renderWidgets();
-      toast('⬆️ Brought to front', 'success');
+      toast(tr('toast.broughtFront'), 'success');
       break;
     case 'back':
       const idx2 = state.widgets.indexOf(w);
       state.widgets.splice(idx2, 1);
       state.widgets.unshift(w);
       renderWidgets();
-      toast('⬇️ Sent to back', 'success');
+      toast(tr('toast.sentBack'), 'success');
       break;
     case 'delete':
       saveUndoState();
@@ -2544,7 +2908,7 @@ function handleQuickAction(action) {
       state.selected = null;
       renderWidgets();
       renderPropsPanel();
-      toast('🗑️ Deleted', 'success');
+      toast(tr('toast.deleted'), 'success');
       break;
   }
   
@@ -2553,12 +2917,7 @@ function handleQuickAction(action) {
 }
 
 // === TUTORIAL ===
-const tutorialSteps = [
-  { icon: '👋', title: 'Welcome!', text: 'Let\'s build your first micro:bit remote control! It\'s easy and fun!' },
-  { icon: '👆', title: 'Pick a Widget', text: 'Tap any widget below (like Button or Slider) to select it.' },
-  { icon: '📱', title: 'Place It', text: 'Then tap on the canvas to place your widget. You can drag it around!' },
-  { icon: '🔗', title: 'Connect & Play!', text: 'When ready, go to Play mode and connect your micro:bit. Have fun!' }
-];
+const tutorialIcons = ['👋', '👆', '📱', '🔗'];
 let tutorialStep = 0;
 
 function showTutorial() {
@@ -2568,19 +2927,21 @@ function showTutorial() {
 }
 
 function updateTutorialStep() {
-  const step = tutorialSteps[tutorialStep];
+  if (!$('#tutorialOverlay')) return;
+  const steps = tr('tutorial.steps');
+  const step = steps && steps[tutorialStep];
   if (!step) {
     closeTutorial();
     return;
   }
-  
-  $('#tutorialIcon').textContent = step.icon;
+
+  $('#tutorialIcon').textContent = tutorialIcons[tutorialStep] || '👋';
   $('#tutorialTitle').textContent = step.title;
   $('#tutorialText').textContent = step.text;
-  
+
   const btn = $('#tutorialNextBtn');
-  btn.textContent = tutorialStep === tutorialSteps.length - 1 ? 'Start Building! 🚀' : 'Next →';
-  
+  btn.textContent = tutorialStep === steps.length - 1 ? tr('tutorial.start') : tr('tutorial.next');
+
   $$('.tutorial-dot').forEach((dot, i) => {
     dot.classList.toggle('active', i === tutorialStep);
   });
@@ -2588,7 +2949,8 @@ function updateTutorialStep() {
 
 function nextTutorialStep() {
   tutorialStep++;
-  if (tutorialStep >= tutorialSteps.length) {
+  const steps = tr('tutorial.steps');
+  if (tutorialStep >= steps.length) {
     closeTutorial();
   } else {
     updateTutorialStep();
@@ -2612,7 +2974,8 @@ function setTheme(theme) {
   $$('.theme-dot').forEach(d => d.classList.toggle('active', d.dataset.theme === theme));
   
   try { localStorage.setItem('app_theme', theme); } catch(e) {}
-  toast('🎨 Theme: ' + theme.charAt(0).toUpperCase() + theme.slice(1), 'success');
+  const themeName = tr('themeNames.' + theme) || (theme.charAt(0).toUpperCase() + theme.slice(1));
+  toast(tr('toast.themeChanged', {theme: themeName}), 'success');
   if (state.soundOn) beepClick();
 }
 
@@ -2915,18 +3278,18 @@ function saveUndoState() {
 }
 
 function undo() {
-  if (state.undoStack.length < 2) { toast('Nothing to undo', 'error'); return; }
+  if (state.undoStack.length < 2) { toast(tr('toast.nothingToUndo'), 'error'); return; }
   state.redoStack.push(state.undoStack.pop());
   state.widgets = JSON.parse(state.undoStack[state.undoStack.length-1]);
   state.selected = null;
   state.multiSelect = [];
   renderWidgets();
   renderPropsPanel();
-  toast('↩️ Undo', 'success');
+  toast(tr('toast.undoDone'), 'success');
 }
 
 function redo() {
-  if (!state.redoStack.length) { toast('Nothing to redo', 'error'); return; }
+  if (!state.redoStack.length) { toast(tr('toast.nothingToRedo'), 'error'); return; }
   const snapshot = state.redoStack.pop();
   state.undoStack.push(snapshot);
   state.widgets = JSON.parse(snapshot);
@@ -2934,7 +3297,7 @@ function redo() {
   state.multiSelect = [];
   renderWidgets();
   renderPropsPanel();
-  toast('↪️ Redo', 'success');
+  toast(tr('toast.redoDone'), 'success');
 }
 
 // Copy/Paste/Duplicate
@@ -3129,7 +3492,8 @@ function setTheme(name) {
   state.theme = name;
   document.body.className = document.body.className.replace(/theme-\w+/g, '');
   if (name !== 'dark') document.body.classList.add('theme-' + name);
-  toast(`🎨 Theme: ${name}`, 'success');
+  const themeName = tr('themeNames.' + name) || (name.charAt(0).toUpperCase() + name.slice(1));
+  toast(tr('toast.themeChanged', {theme: themeName}), 'success');
   try { localStorage.setItem('widget_theme', name); } catch(e) {}
 }
 
@@ -3659,7 +4023,7 @@ function endSelectionBox() {
   selectionBox = null;
   selBoxStart = null;
   updateSelectionUI();
-  if (state.multiSelect.length) toast(`Selected ${state.multiSelect.length} widgets`, 'success');
+  if (state.multiSelect.length) toast(tr('toast.selectedAll', {n: state.multiSelect.length}), 'success');
 }
 
 // Auto-resize canvas based on widget positions
@@ -4144,7 +4508,7 @@ form.innerHTML = html;
       }
       resolveOverlaps(w);
       updateMinimap();
-      toast('🔄 Orientation swapped!', 'success');
+      toast(tr('toast.orientationSwapped'), 'success');
     };
   }
   
@@ -4166,7 +4530,7 @@ form.innerHTML = html;
       }
       resolveOverlaps(w);
       updateMinimap();
-      toast('↩️ Size reset to default!', 'success');
+      toast(tr('toast.sizeReset'), 'success');
     };
   }
   
@@ -4189,14 +4553,14 @@ form.innerHTML = html;
       }
       resolveOverlaps(w);
       updateMinimap();
-      toast(`📐 Size set to ${presetW}×${presetH}`, 'success');
+      toast(tr('toast.sizeSet', {w: presetW, h: presetH}), 'success');
     };
   });
 
   $('#prop_id').onchange = e => {
     const newId = e.target.value.trim();
     if (!newId || state.widgets.some(x => x.id === newId && x !== w)){
-      toast('❌ ID must be unique', 'error');
+      toast(tr('toast.idMustBeUnique'), 'error');
       e.target.value = w.id;
       return;
     }
@@ -4213,13 +4577,13 @@ form.innerHTML = html;
 
     state.selected = newId;
     updateSelectionUI();
-    toast('✅ ID updated', 'success');
+    toast(tr('toast.idUpdated'), 'success');
   };
 
   // Model wiring (and quick apply to all widgets of same type)
   const modelSel = $('#prop_model');
   if (modelSel){
-    modelSel.onchange = e => { w.model = e.target.value; toast('✅ Model updated', 'success'); };
+    modelSel.onchange = e => { w.model = e.target.value; toast(tr('toast.modelUpdated'), 'success'); };
   }
   const applyBtn = $('#prop_applyAll');
   if (applyBtn){
@@ -4229,7 +4593,7 @@ form.innerHTML = html;
       if (state.config?.widgets) state.config.widgets.forEach(x => { if (x.t === w.t) x.model = val; });
       renderWidgets();
       if (state.config) renderRuntime();
-      toast(`✨ Applied model to all ${w.t}s`, 'success');
+      toast(tr('toast.modelAppliedAll', {type: tr('widgets.' + w.t) || w.t}), 'success');
     };
   }
 
@@ -4305,7 +4669,7 @@ form.innerHTML = html;
               w.imageSrc = ev.target.result;
               $('#prop_imageSrc').value = '[Uploaded Image]';
               renderWidgets();
-              toast('🖼️ Image uploaded', 'success');
+              toast(tr('toast.imageUploaded'), 'success');
             };
             reader.readAsDataURL(file);
           }
@@ -4331,23 +4695,23 @@ form.innerHTML = html;
 
 
 function deleteSelected() {
-  if (!state.selected) { toast('👆 Select a widget first!', 'error'); return; }
+  if (!state.selected) { toast(tr('toast.selectWidgetFirst'), 'error'); return; }
   saveUndoState();
   state.widgets = state.widgets.filter(w => w.id !== state.selected);
   state.selected = null;
   renderWidgets();
   renderPropsPanel();
-  toast('🗑️ Deleted!', 'success');
+  toast(tr('toast.deleted'), 'success');
   saveUndoState();
 }
 
 function showCode() {
   if (state.widgets.length === 0) {
-    toast('👆 Add some widgets first!', 'error');
+    toast(tr('toast.addWidgetsFirst'), 'error');
     return;
   }
   const cfg = { title: $('#titleInput').value || 'My Remote', widgets: state.widgets };
-  $('#modalTitle').innerHTML = '📄 Your micro:bit Code <small style="display:block;font-size:0.7rem;font-weight:400;opacity:0.7;margin-top:4px;">Copy to MakeCode or click ⚡Flash to send directly to micro:bit via Bluetooth</small>';
+  $('#modalTitle').innerHTML = esc(tr('codeModal.titleDefault')) + ' <small style="display:block;font-size:0.7rem;font-weight:400;opacity:0.7;margin-top:4px;">' + esc(tr('codeModal.titleSub')) + '</small>';
   $('#modalCode').textContent = generateDemoCode(cfg);
   // Reset flash progress
   const progressEl = $('#flashProgress');
@@ -4359,7 +4723,7 @@ function downloadCode() {
   const blob = new Blob([$('#modalCode').textContent], { type: 'text/plain' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
   a.download = 'microbit-remote.ts'; a.click();
-  toast('💾 Downloaded!', 'success');
+  toast(tr('toast.downloaded'), 'success');
 }
 
 function toast(msg, type = '', duration = 2500) {
@@ -4390,7 +4754,7 @@ function showBuildOverlay(sub='✨ Building...'){
 
 // Loading overlay helpers
 let _loadingIndeterminate = null;
-function showLoading(title = '🧩 Loading your remote...', sub = 'Getting layout from micro:bit'){
+function showLoading(title = tr('loadingTitle'), sub = tr('loadingSub')){
   if (!state._allowLoadingOverlay) return;
   const ov = $('#loadingOverlay');
   if (!ov) return;
@@ -4435,9 +4799,9 @@ async function connectBle() {
   console.log('[BLE] Starting connection...');
   if (!navigator.bluetooth) {
     if (isIOS()) {
-      toast('iOS Safari can\'t do Bluetooth — get the free "Bluefy" app from the App Store and open this page there instead.', 'error', 7000);
+      toast(tr('toast.iosNoBluetooth'), 'error', 7000);
     } else {
-      toast('Web Bluetooth not supported. Use Chrome or Edge on desktop/Android.', 'error', 5000);
+      toast(tr('toast.webBtNotSupported'), 'error', 5000);
     }
     return;
   }
@@ -4486,10 +4850,10 @@ async function connectBle() {
     state.ble = { device, server, service, notifyChar, writeChar, connected: true };
     state.rxBuffer = '';
     updateBleUI();
-    toast('Connected!', 'success');
+    toast(tr('toast.connected'), 'success');
     
     console.log('[BLE] Waiting 500ms then sending GETCFG...');
-    showLoading('🧩 Loading your remote...', 'Requesting layout (GETCFG)…');
+    showLoading(tr('loadingTitle'), tr('loadingRequesting'));
     setTimeout(() => { 
       console.log('[BLE] Sending GETCFG now');
       state.rxBuffer = ''; 
@@ -4497,7 +4861,7 @@ async function connectBle() {
     }, 500);
   } catch (err) {
     console.error('[BLE] Connection error:', err);
-    toast('Connection failed', 'error');
+    toast(tr('toast.connectionFailed'), 'error');
   }
 }
 
@@ -4509,7 +4873,7 @@ function onDisconnect() {
   updateBleUI();
   hideLoading();
   beepDanger();
-  toast('Disconnected', 'error');
+  toast(tr('toast.disconnected'), 'error');
 }
 
 function updateBleUI() {
@@ -4559,9 +4923,6 @@ function updateBleUI() {
 }
 
 let configBuffer = '';
-    configChunks = 0;
-    showLoading('🧩 Loading your remote...', 'Receiving layout…');
-    setLoadingProgress(12, 'Receiving layout…');
 var configChunks = 0;
 function onNotify(event) {
   const value = event.target.value;
@@ -4589,26 +4950,26 @@ function processLine(line) {
   else if (line.startsWith('CFG ')) {
     configBuffer += line.substring(4);
     configChunks++;
-    setLoadingProgress(Math.min(90, 12 + configChunks * 4), `Receiving layout… (${configChunks} chunks)`);
+    setLoadingProgress(Math.min(90, 12 + configChunks * 4), `${tr('loadingReceiving')} (${configChunks})`);
     console.log('[BLE] Config chunk, total length:', configBuffer.length);
   }
   else if (line === 'CFGEND') {
     console.log('[BLE] Config end, decoding...');
-    setLoadingProgress(96, 'Decoding layout…');
+    setLoadingProgress(96, tr('loadingDecoding'));
     try { 
       // Unicode-safe base64 decoding (handles emojis!)
       state.config = JSON.parse(decodeURIComponent(escape(atob(configBuffer))));
       if (state.config?.widgets) state.config.widgets.forEach(applyWidgetDefaults); 
       console.log('[BLE] Config decoded:', state.config);
       renderRuntime();
-      setLoadingProgress(100, 'Ready!');
+      setLoadingProgress(100, tr('loadingReady'));
       setTimeout(hideLoading, 250);
       state._allowLoadingOverlay = false;
       hideLoading();
-      toast('Remote loaded!', 'success'); 
+      toast(tr('toast.remoteLoaded'), 'success');
     }
     catch(e) { console.error('[BLE] Config parse error:', e); hideLoading();
-      toast('Config error', 'error'); }
+      toast(tr('toast.configError'), 'error'); }
   } else if (line.startsWith('UPD ')) {
     const parts = line.substring(4).split(' ');
     const id = parts[0];
@@ -4678,30 +5039,30 @@ function toggleArrangeMode() {
   
   if (state.arrangeMode) {
     btn.classList.add('active');
-    btn.textContent = '✓ Done';
+    btn.textContent = tr('arrangeDone');
     grid.classList.add('arrange-mode');
     hint.style.display = 'block';
-    
+
     // Show resize handles
     grid.querySelectorAll('.rt-resize-handle').forEach(h => h.style.display = 'block');
-    
+
     setupArrangeMode();
-    toast('📐 Arrange mode ON - drag widgets to move', 'success');
+    toast(tr('toast.arrangeModeOn'), 'success');
   } else {
     btn.classList.remove('active');
-    btn.textContent = '📐 Arrange';
+    btn.textContent = tr('arrange');
     grid.classList.remove('arrange-mode');
     hint.style.display = 'none';
-    
+
     // Hide resize handles
     grid.querySelectorAll('.rt-resize-handle').forEach(h => h.style.display = 'none');
-    
+
     teardownArrangeMode();
-    
+
     // Sync changes back to build mode widgets
     syncRuntimeToBuild();
-    
-    toast('✅ Layout saved!', 'success');
+
+    toast(tr('toast.layoutSaved'), 'success');
   }
 }
 
