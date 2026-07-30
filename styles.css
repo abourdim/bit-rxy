@@ -302,7 +302,7 @@ main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
 /* Arrange Mode Button */
 /* Runtime top buttons container */
 .runtime-top-btns {
-  position: fixed;
+  position: absolute;
   top: 12px;
   right: 12px;
   display: flex;
@@ -5909,5 +5909,22 @@ body.dev-mode #logCard:not(.collapsed){ display: flex !important; flex-direction
   height: 14px !important;
   width: auto !important;
   display: block !important;
+}
+
+/* Mobile: the logo's own hard-coded 72x48 clamp + the credit badge leave
+   no room for the app title next to it — shrink the logo and hide the
+   badge so "MICRO:BIT REMOTE" stays visible instead of collapsing to 0 width */
+@media (max-width: 640px){
+  .hero-header .hero-credit{ display: none !important; }
+  .hero-header .hero-logo.fun-logo{
+    width: 36px !important; min-width: 36px !important; max-width: 36px !important;
+    height: 25px !important; min-height: 25px !important; max-height: 25px !important;
+    flex: 0 0 36px !important; margin-right: 6px !important;
+  }
+  .hero-header .hero-logo.fun-logo .logo-img,
+  .hero-header .hero-logo.fun-logo svg{
+    width: 36px !important; height: 25px !important; max-width: 36px !important; max-height: 25px !important;
+  }
+  .hero-header .hero-titles{ margin-left: 6px !important; }
 }
 
