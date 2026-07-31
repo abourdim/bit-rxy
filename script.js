@@ -3226,7 +3226,7 @@ function setupSwipeGestures() {
   }, { passive: true });
 }
 
-function switchTab(tab) {
+function switchTab(tab, opts = {}) {
   $$('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
   $$('.view').forEach(v => v.classList.remove('active'));
   
@@ -3277,8 +3277,10 @@ function switchTab(tab) {
     
     startDemoSim();
     
-    // If connected via BLE, auto-enter fullscreen
-    if (state.ble.connected) {
+    // If connected via BLE, auto-enter fullscreen (unless explicitly
+    // suppressed, e.g. the auto-switch right after a config finishes
+    // loading — that should land on the normal Play view, not fullscreen)
+    if (state.ble.connected && !opts.skipFullscreen) {
       setTimeout(() => enterFullscreenAndFit(), 150);
     }
     // If we have a config (from demo), show it
@@ -5204,6 +5206,12 @@ function processLine(line) {
       state._allowLoadingOverlay = false;
       hideLoading();
       toast(tr('toast.remoteLoaded'), 'success');
+      // Jump straight to the live controls once a config loads successfully
+      // — no reason to leave the user staring at the Build tab. Not
+      // fullscreen, just the normal Play view. (The Play tab's actual
+      // data-tab value is "runtime", not "play" — switchTab()'s own tab-
+      // highlighting keys off that exact string.)
+      switchTab('runtime', { skipFullscreen: true });
       offerLoadCfgIntoBuild(state.config);
     }
     catch(e) { console.error('[BLE] Config parse error:', e); hideLoading();
