@@ -709,6 +709,10 @@ const I18N = {
       disconnected: "Disconnected",
       remoteLoaded: "Remote loaded!",
       configError: "Config error",
+      editInBuildOffer: "📥 Edit this layout in Build?",
+      editInBuildBtn: "Edit in Build",
+      editInBuildConfirm: "This will replace your current Build layout with the one from this device. Continue?",
+      editInBuildDone: "Layout loaded into Build!",
       arrangeModeOn: "📐 Arrange mode ON - drag widgets to move",
       layoutSaved: "✅ Layout saved!",
       duplicated: "📋 Duplicated!",
@@ -818,6 +822,10 @@ const I18N = {
       disconnected: "Déconnecté",
       remoteLoaded: "Télécommande chargée !",
       configError: "Erreur de configuration",
+      editInBuildOffer: "📥 Modifier cette disposition dans Construire ?",
+      editInBuildBtn: "Modifier",
+      editInBuildConfirm: "Cela va remplacer ta disposition actuelle dans Construire par celle de cet appareil. Continuer ?",
+      editInBuildDone: "Disposition chargée dans Construire !",
       arrangeModeOn: "📐 Mode organisation activé - glisse les widgets",
       layoutSaved: "✅ Disposition enregistrée !",
       duplicated: "📋 Dupliqué !",
@@ -927,6 +935,10 @@ const I18N = {
       disconnected: "تم قطع الاتصال",
       remoteLoaded: "تم تحميل جهاز التحكم!",
       configError: "خطأ في الإعدادات",
+      editInBuildOffer: "📥 تعديل هذا التخطيط في وضع البناء؟",
+      editInBuildBtn: "تعديل",
+      editInBuildConfirm: "سيؤدي هذا إلى استبدال تخطيطك الحالي في وضع البناء بالتخطيط من هذا الجهاز. هل تريد المتابعة؟",
+      editInBuildDone: "تم تحميل التخطيط في وضع البناء!",
       arrangeModeOn: "📐 تفعيل وضع الترتيب - اسحب الأدوات لتحريكها",
       layoutSaved: "✅ تم حفظ التخطيط!",
       duplicated: "📋 تم التكرار!",
@@ -1108,6 +1120,83 @@ function exportLayoutJson(){
   if (typeof toast === "function") toast(t.toastExport, "success");
 }
 
+// Shared by importLayoutJsonFile() and loadCfgIntoBuild() (the "edit this
+// device's layout" offer) — both feed a {title, widgets} object into the
+// Build tab's state the same way.
+function applyCfgToBuildState(cfg){
+  state.widgets = cfg.widgets.map(w => ({...w}));
+  // Recompute nextId safely
+  let maxNum = 0;
+  state.widgets.forEach(w=>{
+    const m = String(w.id||"").match(/(\d+)$/);
+    if (m) maxNum = Math.max(maxNum, parseInt(m[1],10));
+  });
+  state.nextId = Math.max(10, maxNum + 1);
+  if ($("#titleInput")) $("#titleInput").value = cfg.title || "My Remote";
+  if (typeof applyWidgetDefaults === "function") state.widgets.forEach(applyWidgetDefaults);
+  state.selected = null;
+  if (typeof renderWidgets === "function") renderWidgets();
+  try{ ensureCanvasToolbar(); }catch(e){}
+  try{ placeToolbarWhereHintWas(); }catch(e){}
+  try{ updateToolbarForMode('builder'); }catch(e){}
+  try{ placeToolbarWhereHintWas(); }catch(e){}
+  try{ moveBuildPlayNameTopRight(); }catch(e){}
+  makeCanvasResizable();
+  if (typeof renderPropsPanel === "function") renderPropsPanel();
+}
+
+// Small floating banner shown after a device's CFG finishes loading in
+// Play mode, offering to load that same layout into the Build tab for
+// editing — handy when there's no source JSON file for an already-
+// flashed device. Reappears on every connect (not just the first).
+function offerLoadCfgIntoBuild(cfg){
+  if (!cfg || !Array.isArray(cfg.widgets)) return;
+  let el = document.getElementById('cfgBuildOffer');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'cfgBuildOffer';
+    el.style.cssText = 'position:fixed;left:50%;bottom:80px;transform:translateX(-50%);'
+      + 'background:#1b2a3a;color:#fff;padding:10px 14px;border-radius:10px;'
+      + 'box-shadow:0 4px 16px rgba(0,0,0,.35);display:flex;align-items:center;'
+      + 'gap:10px;z-index:9999;font-size:14px;max-width:90vw;';
+    document.body.appendChild(el);
+  }
+  el.innerHTML = '';
+
+  const label = document.createElement('span');
+  label.textContent = tr('toast.editInBuildOffer');
+  el.appendChild(label);
+
+  const btn = document.createElement('button');
+  btn.textContent = tr('toast.editInBuildBtn');
+  btn.style.cssText = 'background:#00c2ff;color:#04202c;border:none;border-radius:6px;'
+    + 'padding:6px 10px;font-weight:600;cursor:pointer;white-space:nowrap;';
+  btn.onclick = () => loadCfgIntoBuild(cfg);
+  el.appendChild(btn);
+
+  const close = document.createElement('button');
+  close.textContent = '✕';
+  close.setAttribute('aria-label', 'Dismiss');
+  close.style.cssText = 'background:transparent;color:#9fb3c8;border:none;'
+    + 'cursor:pointer;font-size:14px;padding:2px 4px;';
+  close.onclick = () => el.remove();
+  el.appendChild(close);
+
+  clearTimeout(el._hideTimer);
+  el._hideTimer = setTimeout(() => el.remove(), 8000);
+}
+
+function loadCfgIntoBuild(cfg){
+  if (state.widgets && state.widgets.length > 0) {
+    if (!confirm(tr('toast.editInBuildConfirm'))) return;
+  }
+  applyCfgToBuildState(cfg);
+  switchTab('builder');
+  const el = document.getElementById('cfgBuildOffer');
+  if (el) el.remove();
+  if (typeof toast === "function") toast(tr('toast.editInBuildDone'), "success");
+}
+
 function importLayoutJsonFile(file){
   const t = I18N[state.lang] || I18N.en;
   const reader = new FileReader();
@@ -1115,25 +1204,7 @@ function importLayoutJsonFile(file){
     try {
       const cfg = JSON.parse(String(reader.result || "{}"));
       if (!cfg || !Array.isArray(cfg.widgets)) throw new Error("Bad format");
-      state.widgets = cfg.widgets.map(w => ({...w}));
-      // Recompute nextId safely
-      let maxNum = 0;
-      state.widgets.forEach(w=>{
-        const m = String(w.id||"").match(/(\d+)$/);
-        if (m) maxNum = Math.max(maxNum, parseInt(m[1],10));
-      });
-      state.nextId = Math.max(10, maxNum + 1);
-      if ($("#titleInput")) $("#titleInput").value = cfg.title || "My Remote";
-      if (typeof applyWidgetDefaults === "function") state.widgets.forEach(applyWidgetDefaults);
-      state.selected = null;
-      if (typeof renderWidgets === "function") renderWidgets();
-      try{ ensureCanvasToolbar(); }catch(e){}
-try{ placeToolbarWhereHintWas(); }catch(e){}
-  try{ updateToolbarForMode('builder'); }catch(e){}
-try{ placeToolbarWhereHintWas(); }catch(e){}
-try{ moveBuildPlayNameTopRight(); }catch(e){}
-makeCanvasResizable();
-if (typeof renderPropsPanel === "function") renderPropsPanel();
+      applyCfgToBuildState(cfg);
       if (typeof toast === "function") toast(t.toastImport, "success");
     } catch(e){
       console.error(e);
@@ -4987,6 +5058,7 @@ function processLine(line) {
       state._allowLoadingOverlay = false;
       hideLoading();
       toast(tr('toast.remoteLoaded'), 'success');
+      offerLoadCfgIntoBuild(state.config);
     }
     catch(e) { console.error('[BLE] Config parse error:', e); hideLoading();
       toast(tr('toast.configError'), 'error'); }
