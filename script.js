@@ -4562,8 +4562,16 @@ function renderPropsPanel(){
   }
 
   if (w.t === 'sound'){
+    const effects = [
+      ['beep', '🔉 Beep'], ['success', '✅ Success'], ['warn', '⚠️ Warn'],
+      ['danger', '🚨 Danger'], ['toggle', '🔀 Toggle'],
+    ];
     html += `
-      <p class="props-hint">Device sends <code>UPD ${esc(w.id)} &lt;effect&gt;</code> to play a sound on the phone. Effects: beep, success, warn, danger, toggle.</p>
+      <p class="props-hint">Device sends <code>UPD ${esc(w.id)} &lt;effect&gt;</code> to play a sound on the phone.</p>
+      <label>Effect</label>
+      <select id="prop_soundEffect">
+        ${effects.map(([v,n]) => `<option value="${v}" ${(w.testEffect||'beep')===v?'selected':''}>${n}</option>`).join('')}
+      </select>
       <button class="props-apply" id="prop_testSound">🔊 Test Sound</button>
     `;
   }
@@ -4860,8 +4868,10 @@ form.innerHTML = html;
   }
 
   if (w.t === 'sound'){
+    const effectSel = $('#prop_soundEffect');
+    if (effectSel) effectSel.onchange = e => { w.testEffect = e.target.value; };
     const testBtn = $('#prop_testSound');
-    if (testBtn) testBtn.onclick = () => playSoundEffect('beep');
+    if (testBtn) testBtn.onclick = () => playSoundEffect(w.testEffect || 'beep');
   }
 
   if (w.t === 'notification'){
