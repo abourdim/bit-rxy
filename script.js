@@ -4807,6 +4807,23 @@ async function connectBle() {
   }
   state._allowLoadingOverlay = true;
   try {
+    // Clean up any previous connection before starting a new one. Web
+    // Bluetooth's getCharacteristic() returns a fresh wrapper object on
+    // every call, even for the same physical characteristic — so the
+    // characteristicvaluechanged listener added below is never a no-op
+    // duplicate, it's a genuinely new listener stacking on top of any
+    // old one still attached to a still-referenced wrapper. Repeated
+    // Connect clicks in the same tab (e.g. after a firmware re-upload
+    // drops the link) were silently accumulating listeners, so a single
+    // real BLE notification fired onNotify() once per stale connection
+    // — corrupting the CFG stream with duplicated chunks.
+    if (state.ble.notifyChar) {
+      state.ble.notifyChar.removeEventListener('characteristicvaluechanged', onNotify);
+    }
+    if (state.ble.device?.gatt?.connected) {
+      state.ble.device.gatt.disconnect();
+    }
+
     console.log('[BLE] Requesting device...');
     // Accept ALL devices in the chooser (matches face-tracking app).
     // Filtering by namePrefix 'BBC micro:bit' here was hiding compatible
@@ -4869,6 +4886,9 @@ function onDisconnect() {
   console.log('[BLE] Disconnected!');
   state._allowLoadingOverlay = false;
   if (typeof hideLoading==='function') hideLoading();
+  if (state.ble.notifyChar) {
+    state.ble.notifyChar.removeEventListener('characteristicvaluechanged', onNotify);
+  }
   state.ble = { device:null, server:null, service:null, notifyChar:null, writeChar:null, connected:false };
   updateBleUI();
   hideLoading();
