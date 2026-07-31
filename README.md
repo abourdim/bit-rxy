@@ -50,7 +50,7 @@ Perfect for:
 | 🎨 **Visual Builder** | Drag & drop interface - no coding needed! |
 | 📱 **Works Everywhere** | Phone, tablet, or computer |
 | 🔵 **Bluetooth BLE** | Wireless connection to micro:bit |
-| 🎮 **12 Widget Types** | Buttons, sliders, joysticks, and more! |
+| 🎮 **16 Widget Types** | Buttons, sliders, joysticks, and more! |
 | 🌍 **Multi-language** | English, French, Arabic |
 | 🎨 **Themes** | Multiple color themes to choose from |
 | 💾 **Save & Load** | Export/import your designs |
@@ -121,7 +121,7 @@ Perfect for:
 |--------|--------------|
 | ✏️ **Build** | Design your remote |
 | ▶️ **Play** | Use your remote |
-| 🎮 **Demo** | Try all 12 widgets |
+| 🎮 **Demo** | Try all 16 widgets |
 | 📦 **Export** | Save design as JSON |
 | 📂 **Import** | Load a saved design |
 | 📄 **Code** | Get MakeCode for micro:bit |
@@ -443,6 +443,60 @@ if (id == "timer_game") {
 
 ---
 
+#### 🔽 Select
+
+**What it does:** Choose one option from a dropdown list
+
+**Looks like:** A dropdown menu with your custom choices
+
+**Message format:**
+```
+SET select_id Medium    ← Sends the chosen option's text
+```
+
+**MakeCode example:**
+```javascript
+// Pick a driving mode
+if (id == "select_mode") {
+    if (val == "Slow") {
+        maxSpeed = 30
+    } else if (val == "Medium") {
+        maxSpeed = 60
+    } else if (val == "Fast") {
+        maxSpeed = 100
+    }
+    serial.writeLine("Mode: " + val)
+}
+```
+
+**Use it for:** 🎮 Game modes, 🎨 Color picker, 🏎️ Speed presets, 🎵 Song selection
+
+---
+
+#### ⌨️ Edit Field
+
+**What it does:** Send whatever text you type
+
+**Looks like:** A text box with a Send button
+
+**Message format:**
+```
+SET editfield_id Hello there!    ← Whatever you typed
+```
+
+**MakeCode example:**
+```javascript
+// Show typed text on the micro:bit
+if (id == "editfield_name") {
+    basic.showString(val)
+    serial.writeLine("Typed: " + val)
+}
+```
+
+**Use it for:** 💬 Custom messages, 🏷️ Naming things, 🔢 Entering codes, 📝 Notes
+
+---
+
 ### 📤 Output Widgets (micro:bit Controls)
 
 These widgets receive data **FROM micro:bit TO the app**. Your micro:bit code sends updates to change them!
@@ -624,6 +678,70 @@ basic.forever(function() {
 ```
 
 **Use it for:** 🔋 Battery level, ⛽ Fuel gauge, 💧 Water level, 📶 Signal strength
+
+---
+
+#### 🔊 Sound
+
+**What it does:** Play a sound effect on the phone
+
+**Looks like:** A speaker icon that pulses when triggered
+
+**How to update from micro:bit:**
+```javascript
+// Play one of 5 built-in effects
+sendValue("sound_fx", "beep")      // short beep
+sendValue("sound_fx", "success")   // happy chime
+sendValue("sound_fx", "warn")      // warning tone
+sendValue("sound_fx", "danger")    // uh-oh tone
+sendValue("sound_fx", "toggle")    // click
+```
+
+**Full example:**
+```javascript
+// Beep when button pressed, warn on low battery
+input.onButtonPressed(Button.A, function() {
+    sendValue("sound_fx", "beep")
+})
+
+basic.forever(function() {
+    let voltage = pins.analogReadPin(AnalogPin.P0)
+    if (voltage < 300) {
+        sendValue("sound_fx", "danger")
+    }
+    basic.pause(5000)
+})
+```
+
+**Use it for:** 🚨 Alarms, ✅ Confirmations, 🎮 Game sounds, ⚠️ Warnings
+
+---
+
+#### 🔔 Notification
+
+**What it does:** Show a big attention-grabbing banner on the phone
+
+**Looks like:** A bold popup banner with a bell icon
+
+**How to update from micro:bit:**
+```javascript
+sendValue("alert_box", "Game Over!")
+```
+
+**Full example:**
+```javascript
+// Alert when a button is pressed 5 times
+let presses = 0
+input.onButtonPressed(Button.A, function() {
+    presses += 1
+    if (presses >= 5) {
+        sendValue("alert_box", "🎉 5 presses! You win!")
+        presses = 0
+    }
+})
+```
+
+**Use it for:** 🎉 Win/lose messages, ⚠️ Important alerts, 📢 Announcements, 🚨 Emergency stop
 
 ---
 

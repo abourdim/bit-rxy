@@ -1,7 +1,7 @@
 // Bumped on every push to this repo — shown in the header next to the
 // subtitle. Simple incrementing build number, not semver: there's no
 // meaningful "breaking change" concept for a single-page kid tool.
-const APP_VERSION = 'v1.0';
+const APP_VERSION = 'v1.1';
 
 window.__ovl = window.__ovl || { t:null };
 
@@ -1650,7 +1650,7 @@ function send(msg) {
 
 // One-click Demo - creates full showcase with ALL widgets
 function showDemo() {
-  // Create a demo with ALL 12 widget types - complete showcase!
+  // Create a demo with ALL 16 widget types - complete showcase!
   state.widgets = [
     // Row 1: Buttons + Sliders
     { id: 'btn_jump', t: 'button', x: 20, y: 20, w: 100, h: 100, label: 'Jump!', model:'neo' },
@@ -1681,7 +1681,13 @@ function showDemo() {
     { id: 'gauge_level', t: 'gauge', x: 180, y: 560, w: 140, h: 160, label: 'Level', min: 0, max: 100, units: '%', decimals: 0, model:'neon' },
     
     // Row 6: Graph
-    { id: 'graph_env', t: 'graph', x: 20, y: 740, w: 420, h: 150, label: 'Live Data', series: 2, windowSec: 30, autoScale: true, model:'grid' }
+    { id: 'graph_env', t: 'graph', x: 20, y: 740, w: 420, h: 150, label: 'Live Data', series: 2, windowSec: 30, autoScale: true, model:'grid' },
+
+    // Row 7: Select + Edit Field + Sound + Notification
+    { id: 'select_mode', t: 'select', x: 460, y: 400, w: 160, h: 70, label: 'Mode', options: 'Slow,Medium,Fast' },
+    { id: 'editfield_name', t: 'editfield', x: 460, y: 480, w: 200, h: 70, label: 'Name' },
+    { id: 'sound_fx', t: 'sound', x: 460, y: 560, w: 90, h: 90, label: 'Sound' },
+    { id: 'alert_box', t: 'notification', x: 560, y: 560, w: 90, h: 90, label: 'Alert' }
   ];
   state.widgets = state.widgets.map(applyWidgetDefaults);
   state.nextId = 30;
