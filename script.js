@@ -6403,9 +6403,8 @@ function updateGaugeWidget(w, valStr){
 
 function updateRuntimeWidget(id, val) {
   console.log('[UI] Updating widget:', id, 'to', val);
-  const el = document.querySelector(`.rt-widget[data-id="${id}"]`);
-  if (!el || !state.config) {
-    console.log('[UI] Widget not found or no config. Element:', el, 'Config:', !!state.config);
+  if (!state.config) {
+    console.log('[UI] No config loaded yet.');
     return;
   }
   const w = state.config.widgets.find(x => x.id === id);
@@ -6414,6 +6413,31 @@ function updateRuntimeWidget(id, val) {
     return;
   }
   console.log('[UI] Widget type:', w.t);
+
+  // sound/notification are system effects, not visual state — they must
+  // fire even if their on-canvas element happens to be scrolled/clipped
+  // out of the current viewport, so handle them before the DOM lookup
+  // that every other (visual) widget type below actually needs.
+  if (w.t === 'sound') {
+    playSoundEffect(val);
+    const icon = document.querySelector(`.rt-widget[data-id="${id}"] [data-role="soundIcon"]`);
+    if (icon) {
+      icon.classList.remove('pulse');
+      void icon.offsetWidth;
+      icon.classList.add('pulse');
+    }
+    return;
+  }
+  if (w.t === 'notification') {
+    showRuntimeNotification(w, val);
+    return;
+  }
+
+  const el = document.querySelector(`.rt-widget[data-id="${id}"]`);
+  if (!el) {
+    console.log('[UI] Widget element not found in DOM.');
+    return;
+  }
   switch (w.t) {
     case 'slider': el.querySelector('.rt-slider').value = val; el.querySelector('.rt-slider-val').textContent = val; break;
     case 'toggle': el.querySelector('.rt-toggle').classList.toggle('on', val === '1'); el.querySelector('.rt-toggle').textContent = val === '1' ? '😃' : '😴'; break;
@@ -6449,20 +6473,6 @@ function updateRuntimeWidget(id, val) {
       const last = el.querySelector('[data-role="graphLast"]');
       if (last) last.textContent = val;
       drawGraphWidget(w);
-      break;
-    }
-    case 'sound': {
-      playSoundEffect(val);
-      const icon = el.querySelector('[data-role="soundIcon"]');
-      if (icon) {
-        icon.classList.remove('pulse');
-        void icon.offsetWidth; // restart animation
-        icon.classList.add('pulse');
-      }
-      break;
-    }
-    case 'notification': {
-      showRuntimeNotification(w, val);
       break;
     }
   }
