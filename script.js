@@ -5616,31 +5616,24 @@ function bindRuntimeWidget(el, w) {
         // Visual position uses screen coordinates (Y not inverted)
         const visualDy = clientY - centerY;
         stick.style.transform = `translate(${(dx / Math.hypot(dx, visualDy || 1)) * distance}px, ${(visualDy / Math.hypot(dx, visualDy || 1)) * distance}px)`;
-        // Don't send during drag - only on release
+        // Send live position during drag. send()'s queue (bleSend) already
+        // does latest-value-wins coalescing at a 200ms minInterval, so this
+        // is safe to call on every pointermove without flooding BLE — it's
+        // exactly the "continuous controls like joystick" case that queue
+        // was built for. Without this, driving robots had to wait for
+        // release before the vehicle moved at all.
+        send(`SET ${w.id} ${currentAngle} ${currentDist}`);
       };
       const resetJoystick = () => {
         if (!isDown) return;
         isDown = false;
         // Clear any pending reset timer
         if (resetTimer) { clearTimeout(resetTimer); resetTimer = null; }
-        // Send final position before reset (only if moved significantly)
-        const finalAngle = currentAngle;
-        const finalDist = currentDist;
         stick.style.transform = '';
         currentAngle = 0;
         currentDist = 0;
-        // Single combined send: final position then center, with proper delay
-        if (finalDist > 5) {
-          send(`SET ${w.id} ${finalAngle} ${finalDist}`);
-          // Wait longer than BLE minInterval before sending center
-          resetTimer = setTimeout(() => {
-            resetTimer = null;
-            send(`SET ${w.id} 0 0`);
-          }, 250);
-        } else {
-          // Just send center if no significant movement
-          send(`SET ${w.id} 0 0`);
-        }
+        // Live updates already streamed during the drag; just center it now.
+        send(`SET ${w.id} 0 0`);
       };
       const startJoystick = (e) => {
         if (e.type === 'touchstart') e.preventDefault();
