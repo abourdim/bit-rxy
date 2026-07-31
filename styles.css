@@ -1954,6 +1954,17 @@ body.theme-sunset .canvas { background: linear-gradient(135deg, #6a0572, #ab0a78
 .props-apply:hover{
   border-color: var(--accent);
 }
+.props-hint{
+  margin: 4px 0 0;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  line-height: 1.4;
+}
+.props-hint code{
+  background: rgba(255,255,255,0.08);
+  padding: 1px 5px;
+  border-radius: 6px;
+}
 
 
 /* Loading Overlay (kid-friendly) */
@@ -2796,6 +2807,43 @@ body.theme-sunset { --bg: #2d1b2d; --surface: #4a2c4a; --card: #6b3a6b; --accent
 .timer-btn:hover { transform: scale(1.05); box-shadow: 0 6px 18px rgba(102,126,234,0.5); }
 .timer-btn:active { transform: scale(0.95); }
 .timer-btn:hover { background: rgba(255,255,255,0.2); }
+
+/* Select widget */
+.rt-select-wrap { width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 8px; padding: 8px 10px; }
+.rt-select-label { font-weight: 700; font-size: clamp(0.75rem, 1.8vw, 0.9rem); color: var(--text); text-align: center; }
+.rt-select {
+  width: 100%; max-width: 220px; padding: 8px 10px; border-radius: 12px;
+  border: 2px solid rgba(255,255,255,0.15); background: var(--card); color: var(--text);
+  font-weight: 700; font-size: clamp(0.8rem, 1.8vw, 1rem); cursor: pointer;
+}
+.rt-select:focus { outline: none; border-color: var(--accent); }
+
+/* Edit field widget */
+.rt-editfield-wrap { width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 8px; padding: 8px 10px; }
+.rt-editfield-label { font-weight: 700; font-size: clamp(0.75rem, 1.8vw, 0.9rem); color: var(--text); text-align: center; }
+.rt-editfield-row { display: flex; gap: 6px; width: 100%; max-width: 260px; }
+.rt-editfield {
+  flex: 1; min-width: 0; padding: 8px 10px; border-radius: 12px;
+  border: 2px solid rgba(255,255,255,0.15); background: var(--card); color: var(--text);
+  font-size: clamp(0.8rem, 1.8vw, 1rem);
+}
+.rt-editfield:focus { outline: none; border-color: var(--accent); }
+.rt-editfield-send {
+  padding: 8px 12px; border: none; border-radius: 12px; cursor: pointer;
+  background: linear-gradient(135deg, var(--accent), var(--blue)); color: #000; font-weight: 800;
+}
+.rt-editfield-send:hover { transform: scale(1.05); }
+.rt-editfield-send:active { transform: scale(0.95); }
+
+/* Sound / Notification widgets (output-only, decorative) */
+.rt-sound, .rt-notification {
+  width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 8px; border-radius: 16px; background: rgba(255,255,255,0.04); border: 2px solid rgba(255,255,255,0.1);
+}
+.rt-sound > span, .rt-notification > span { font-weight: 800; font-size: clamp(0.7rem, 2vw, 1rem); color: var(--text-dim); }
+.sound-icon, .notification-icon { font-size: clamp(1.5rem, 4vw, 2.4rem); transition: transform 0.15s ease; }
+.sound-icon.pulse, .notification-icon.pulse { animation: sound-pulse 0.4s ease; }
+@keyframes sound-pulse { 0% { transform: scale(1); } 40% { transform: scale(1.3); } 100% { transform: scale(1); } }
 
 /* Share Modal */
 .share-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: none; align-items: center; justify-content: center; z-index: 1000; }

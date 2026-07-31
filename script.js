@@ -1215,8 +1215,8 @@ function importLayoutJsonFile(file){
 }
 
 
-const ICONS = { button:'👆', slider:'🎚️', toggle:'🔘', joystick:'🕹️', led:'💡', label:'🏷️', graph:'📈', gauge:'🧭', dpad:'✛', xypad:'📍', battery:'🔋', timer:'⏱️', image:'🖼️' };
-const SIZES = { button:[100,100], slider:[90,180], toggle:[100,100], joystick:[140,140], led:[80,80], label:[200,50], graph:[300,150], gauge:[140,160], dpad:[140,140], xypad:[150,150], battery:[80,100], timer:[120,80], image:[100,100] };
+const ICONS = { button:'👆', slider:'🎚️', toggle:'🔘', joystick:'🕹️', led:'💡', label:'🏷️', graph:'📈', gauge:'🧭', dpad:'✛', xypad:'📍', battery:'🔋', timer:'⏱️', image:'🖼️', select:'🔽', editfield:'⌨️', sound:'🔊', notification:'🔔' };
+const SIZES = { button:[100,100], slider:[90,180], toggle:[100,100], joystick:[140,140], led:[80,80], label:[200,50], graph:[300,150], gauge:[140,160], dpad:[140,140], xypad:[150,150], battery:[80,100], timer:[120,80], image:[100,100], select:[160,70], editfield:[200,70], sound:[90,90], notification:[90,90] };
 
 // Themes
 const THEMES = {
@@ -1408,6 +1408,18 @@ function beepWarn(){ beep(523, 0.09, 0.06, 'triangle'); setTimeout(()=>beep(659,
 function beepDanger(){ beep(330, 0.10, 0.07, 'sawtooth'); setTimeout(()=>beep(330,0.10,0.07,'sawtooth'), 130); }
 function beepSuccess(){ beep(523, 0.08, 0.05, 'sine'); setTimeout(()=>beep(659,0.08,0.05,'sine'), 100); setTimeout(()=>beep(784,0.12,0.05,'sine'), 200); }
 
+// Plays one of the named effects above for a "sound" widget's incoming
+// UPD value. Named strings and RemoteXY-style numeric IDs both map to the
+// same small effect set (there's no audio-file library here, just tones).
+function playSoundEffect(val){
+  const v = String(val || '').trim().toLowerCase();
+  if (v === 'success' || v === '1004') beepSuccess();
+  else if (v === 'warn' || v === 'warning' || v === '1012') beepWarn();
+  else if (v === 'danger' || v === 'error' || v === '1003') beepDanger();
+  else if (v === 'toggle' || v === '1002') beepToggle(true);
+  else beepClick(); // "beep" and anything unrecognized
+}
+
 // Sound UI
 function updateSoundUI(){
   const b = $('#soundBtn');
@@ -1464,6 +1476,17 @@ function applyWidgetDefaults(w){
     if (w.min == null) w.min = 0;
     if (w.max == null) w.max = 100;
     if (w.showLegend == null) w.showLegend = true;
+  }
+
+  // Select defaults — options stored as a comma-separated string, same
+  // convention as graph's seriesNames (no dedicated list-editor UI).
+  if (w.t === 'select'){
+    if (!w.options) w.options = 'Option 1,Option 2,Option 3';
+  }
+
+  // Edit field defaults
+  if (w.t === 'editfield'){
+    if (w.placeholder == null) w.placeholder = 'Type here...';
   }
 
   return w;
@@ -1708,7 +1731,11 @@ function generateDemoCode(cfg) {
   const gauges = cfg.widgets.filter(w => w.t === 'gauge');
   const graphs = cfg.widgets.filter(w => w.t === 'graph');
   const batteries = cfg.widgets.filter(w => w.t === 'battery');
-  
+  const selects = cfg.widgets.filter(w => w.t === 'select');
+  const editfields = cfg.widgets.filter(w => w.t === 'editfield');
+  const sounds = cfg.widgets.filter(w => w.t === 'sound');
+  const notifications = cfg.widgets.filter(w => w.t === 'notification');
+
   // Generate handler code for each widget
   let buttonCode = buttons.map(w => `    // Button: ${w.label || w.id}
     if (id == "${w.id}" && val == "1") {
@@ -1791,6 +1818,18 @@ function generateDemoCode(cfg) {
         serial.writeLine("Timer: " + secs + "s")
     }`).join('\n');
 
+  let selectCode = selects.map(w => `    // Select: ${w.label || w.id} (val = the chosen option's text)
+    if (id == "${w.id}") {
+        serial.writeLine("Chose: " + val)
+        // Compare val to your option strings, e.g.:
+        // if (val == "Fast") { ... }
+    }`).join('\n');
+
+  let editfieldCode = editfields.map(w => `    // Edit Field: ${w.label || w.id} (val = whatever text was typed)
+    if (id == "${w.id}") {
+        basic.showString(val)
+    }`).join('\n');
+
   let ledList = leds.map(w => `//   sendValue("${w.id}", "1")  // Turn ON ${w.label || 'LED'}
 //   sendValue("${w.id}", "0")  // Turn OFF`).join('\n');
 
@@ -1808,8 +1847,8 @@ function generateDemoCode(cfg) {
   const totalWidgets = cfg.widgets.length;
   
   // Count widget types
-  const inputWidgets = buttons.length + sliders.length + toggles.length + joysticks.length + dpads.length + xypads.length;
-  const outputWidgets = leds.length + labels.length + gauges.length + graphs.length + batteries.length;
+  const inputWidgets = buttons.length + sliders.length + toggles.length + joysticks.length + dpads.length + xypads.length + selects.length + editfields.length;
+  const outputWidgets = leds.length + labels.length + gauges.length + graphs.length + batteries.length + sounds.length + notifications.length;
 
   // Build header
   const header = `/**
@@ -1836,8 +1875,10 @@ function generateDemoCode(cfg) {
  * 🔧 WIDGET BREAKDOWN:
  *    Buttons: ${buttons.length}  |  Sliders: ${sliders.length}  |  Toggles: ${toggles.length}
  *    Joysticks: ${joysticks.length}  |  D-Pads: ${dpads.length}  |  XY Pads: ${xypads.length}
+ *    Selects: ${selects.length}  |  Edit Fields: ${editfields.length}
  *    LEDs: ${leds.length}  |  Labels: ${labels.length}  |  Gauges: ${gauges.length}
  *    Graphs: ${graphs.length}  |  Batteries: ${batteries.length}  |  Timers: ${timers.length}
+ *    Sounds: ${sounds.length}  |  Notifications: ${notifications.length}
  * 
  * 🚀 HOW TO USE:
  *    1. Copy this entire code
@@ -1863,6 +1904,7 @@ function generateDemoCode(cfg) {
 bluetooth.startUartService()
 let cfgSent = false
 let blinkState = false
+let loopTick = 0
 
 // 📦 Remote layout config (Base64 encoded, ${cfgSize} bytes, ${nbChunks} chunks)
 // Decoded below for reference (not read by the code — edit the layout in
@@ -1915,6 +1957,10 @@ ${dpadCode || '    // No D-Pads in this remote'}
 ${xypadCode || '    // No XY Pads in this remote'}
 
 ${timerCode || '    // No timers in this remote'}
+
+${selectCode || '    // No selects in this remote'}
+
+${editfieldCode || '    // No edit fields in this remote'}
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1946,6 +1992,13 @@ basic.forever(function() {
         ${gauges.length > 0 ? gauges.map((g,i)=>`sendValue("${g.id}", "" + (Math.round((Math.sin((t/1000)+${i}) + 1) * 25)))`).join("\n        ") : "// No gauges to update"}
         ${graphs.length > 0 ? graphs.map((g,i)=>`sendValue("${g.id}", "" + (Math.round((Math.sin((t/900)+${i}) + 1) * 50)) + "," + (Math.round((Math.cos((t/1100)+${i}) + 1) * 50)))`).join("\n        ") : "// No graphs to update"}
         ${batteries.length > 0 ? batteries.map((b,i)=>`sendValue("${b.id}", "" + (Math.round((Math.sin((t/2000)+${i}) + 1) * 50)))`).join("\n        ") : "// No batteries to update"}
+        // Sound/Notification demo: fire once every ~5s (25 ticks * 200ms) so
+        // it doesn't spam — trigger these for real from your own game logic!
+        loopTick += 1
+        if (loopTick % 25 == 0) {
+            ${sounds.length > 0 ? sounds.map(s=>`sendValue("${s.id}", "beep")  // beep | success | warn | danger | toggle`).join("\n            ") : "// No sounds to trigger"}
+            ${notifications.length > 0 ? notifications.map(n=>`sendValue("${n.id}", "Hello from micro:bit!")`).join("\n            ") : "// No notifications to trigger"}
+        }
     }
     basic.pause(200)
 })
@@ -4494,6 +4547,34 @@ function renderPropsPanel(){
     `;
   }
 
+  if (w.t === 'select'){
+    html += `
+      <label>Choices (comma separated)</label>
+      <input id="prop_options" value="${esc(w.options || '')}" placeholder="Slow,Medium,Fast" />
+    `;
+  }
+
+  if (w.t === 'editfield'){
+    html += `
+      <label>Placeholder text</label>
+      <input id="prop_placeholder" value="${esc(w.placeholder || '')}" placeholder="Type here..." />
+    `;
+  }
+
+  if (w.t === 'sound'){
+    html += `
+      <p class="props-hint">Device sends <code>UPD ${esc(w.id)} &lt;effect&gt;</code> to play a sound on the phone. Effects: beep, success, warn, danger, toggle.</p>
+      <button class="props-apply" id="prop_testSound">🔊 Test Sound</button>
+    `;
+  }
+
+  if (w.t === 'notification'){
+    html += `
+      <p class="props-hint">Device sends <code>UPD ${esc(w.id)} &lt;message&gt;</code> to show a banner on the phone.</p>
+      <button class="props-apply" id="prop_testNotification">🔔 Test Notification</button>
+    `;
+  }
+
 form.innerHTML = html;
 
   // Wire events
@@ -4768,6 +4849,26 @@ form.innerHTML = html;
     if (timerStart) timerStart.oninput = e => { w.timerStart = parseInt(e.target.value); };
   }
 
+  if (w.t === 'select'){
+    const optsInput = $('#prop_options');
+    if (optsInput) optsInput.oninput = e => { w.options = e.target.value; if (state.config) renderRuntime(); };
+  }
+
+  if (w.t === 'editfield'){
+    const ph = $('#prop_placeholder');
+    if (ph) ph.oninput = e => { w.placeholder = e.target.value; if (state.config) renderRuntime(); };
+  }
+
+  if (w.t === 'sound'){
+    const testBtn = $('#prop_testSound');
+    if (testBtn) testBtn.onclick = () => playSoundEffect('beep');
+  }
+
+  if (w.t === 'notification'){
+    const testBtn = $('#prop_testNotification');
+    if (testBtn) testBtn.onclick = () => showRuntimeNotification(w, 'Test notification!');
+  }
+
 }
 
 
@@ -4808,6 +4909,35 @@ function toast(msg, type = '', duration = 2500) {
   t.className = `toast ${type} show`;
   clearTimeout(t._hideTimer);
   t._hideTimer = setTimeout(() => t.classList.remove('show'), duration);
+}
+
+// Bigger/longer-lived banner for a "notification" widget's incoming UPD
+// value — deliberately more prominent than a regular toast() since the
+// device is explicitly asking for the user's attention.
+function showRuntimeNotification(w, msg){
+  let el = document.getElementById('runtimeNotification');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'runtimeNotification';
+    el.style.cssText = 'position:fixed;left:50%;top:70px;transform:translateX(-50%);'
+      + 'background:linear-gradient(135deg,#ff9f1c,#ff5252);color:#fff;padding:12px 20px;'
+      + 'border-radius:14px;box-shadow:0 6px 20px rgba(0,0,0,.4);display:flex;align-items:center;'
+      + 'gap:10px;z-index:9999;font-weight:700;font-size:15px;max-width:90vw;';
+    document.body.appendChild(el);
+  }
+  el.innerHTML = '';
+  const label = document.createElement('span');
+  label.textContent = '🔔 ' + (msg || (w && w.label) || 'Notification');
+  el.appendChild(label);
+  const close = document.createElement('button');
+  close.textContent = '✕';
+  close.setAttribute('aria-label', 'Dismiss');
+  close.style.cssText = 'background:transparent;color:#fff;border:none;cursor:pointer;font-size:14px;padding:2px 4px;';
+  close.onclick = () => el.remove();
+  el.appendChild(close);
+  beepWarn();
+  clearTimeout(el._hideTimer);
+  el._hideTimer = setTimeout(() => el.remove(), 5000);
 }
 
 // iOS (incl. iPadOS reporting as MacIntel) never implements Web Bluetooth,
@@ -5617,6 +5747,42 @@ function createRuntimeWidget(w) {
       </div>`;
     }
 
+    case 'select': {
+      const choices = (w.options || '').split(',').map(s => s.trim()).filter(Boolean);
+      const current = rawVal || choices[0] || '';
+      return `<div class="rt-select-wrap">
+        <div class="rt-select-label">${label}</div>
+        <select class="rt-select">
+          ${choices.map(c => `<option value="${esc(c)}" ${c === current ? 'selected' : ''}>${esc(c)}</option>`).join('')}
+        </select>
+      </div>`;
+    }
+
+    case 'editfield': {
+      const placeholder = esc(w.placeholder || 'Type here...');
+      return `<div class="rt-editfield-wrap">
+        <div class="rt-editfield-label">${label}</div>
+        <div class="rt-editfield-row">
+          <input type="text" class="rt-editfield" placeholder="${placeholder}" value="${val === '0' ? '' : val}">
+          <button class="rt-editfield-send" type="button">➤</button>
+        </div>
+      </div>`;
+    }
+
+    case 'sound': {
+      return `<div class="rt-sound">
+        <div class="sound-icon" data-role="soundIcon">🔊</div>
+        <span>${label}</span>
+      </div>`;
+    }
+
+    case 'notification': {
+      return `<div class="rt-notification">
+        <div class="notification-icon">🔔</div>
+        <span>${label}</span>
+      </div>`;
+    }
+
     default:
       return `<div>${w.t}</div>`;
   }
@@ -5859,6 +6025,27 @@ function bindRuntimeWidget(el, w) {
         beepClick();
       };
       break;
+
+    case 'select': {
+      const sel = el.querySelector('.rt-select');
+      sel.onchange = () => {
+        beepClick();
+        send(`SET ${w.id} ${sel.value}`);
+      };
+      break;
+    }
+
+    case 'editfield': {
+      const input = el.querySelector('.rt-editfield');
+      const sendBtn = el.querySelector('.rt-editfield-send');
+      const submit = () => {
+        beepClick();
+        send(`SET ${w.id} ${input.value}`);
+      };
+      sendBtn.onclick = submit;
+      input.onkeydown = e => { if (e.key === 'Enter') submit(); };
+      break;
+    }
   }
 }
 
@@ -6262,6 +6449,20 @@ function updateRuntimeWidget(id, val) {
       const last = el.querySelector('[data-role="graphLast"]');
       if (last) last.textContent = val;
       drawGraphWidget(w);
+      break;
+    }
+    case 'sound': {
+      playSoundEffect(val);
+      const icon = el.querySelector('[data-role="soundIcon"]');
+      if (icon) {
+        icon.classList.remove('pulse');
+        void icon.offsetWidth; // restart animation
+        icon.classList.add('pulse');
+      }
+      break;
+    }
+    case 'notification': {
+      showRuntimeNotification(w, val);
       break;
     }
   }
