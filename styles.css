@@ -5976,3 +5976,17 @@ body.dev-mode #logCard:not(.collapsed){ display: flex !important; flex-direction
   .hero-header .hero-titles{ margin-left: 6px !important; }
 }
 
+
+/* App version badge next to the header subtitle */
+.hero-version{
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: 8px;
+  background: rgba(255,255,255,.1);
+  color: rgba(255,255,255,.6);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .03em;
+  vertical-align: middle;
+}

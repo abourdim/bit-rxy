@@ -1,3 +1,8 @@
+// Bumped on every push to this repo — shown in the header next to the
+// subtitle. Simple incrementing build number, not semver: there's no
+// meaningful "breaking change" concept for a single-page kid tool.
+const APP_VERSION = 'v1.0';
+
 window.__ovl = window.__ovl || { t:null };
 
 // EARLY ZOOM VALIDATION - prevents tiny render on page load
@@ -1026,8 +1031,9 @@ function setLang(lang){
   const ct = document.querySelector(".connect-text"); if (ct) ct.textContent = t.runtimeConnectText;
   const cb = $("#connectBtn"); if (cb) cb.textContent = t.runtimeConnectBtn;
 
-  // Subtitle
-  const sub = document.querySelector(".hero-subtitle"); if (sub) sub.textContent = t.subtitle;
+  // Subtitle (not the whole .hero-subtitle — that would wipe out the
+  // version badge span sitting next to it)
+  const sub = document.getElementById("heroSubtitleText"); if (sub) sub.textContent = t.subtitle;
 
   // Sound button
   if (typeof updateSoundUI === "function") updateSoundUI();
@@ -2031,6 +2037,9 @@ input.onButtonPressed(Button.B, function() {
 }
 
 function init() {
+  const versionEl = document.getElementById('appVersion');
+  if (versionEl) versionEl.textContent = APP_VERSION;
+
   try{ ensureCanvasToolbar(); }catch(e){}
 
   try{ placeToolbarWhereHintWas(); }catch(e){}
