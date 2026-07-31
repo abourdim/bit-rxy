@@ -506,7 +506,7 @@
             <tr><td>🎨 Visual Builder</td><td>Drag & drop interface - no coding needed!</td></tr>
             <tr><td>📱 Works Everywhere</td><td>Phone, tablet, or computer</td></tr>
             <tr><td>🔵 Bluetooth BLE</td><td>Wireless connection to micro:bit</td></tr>
-            <tr><td>🎮 12 Widget Types</td><td>Buttons, sliders, joysticks, and more!</td></tr>
+            <tr><td>🎮 16 Widget Types</td><td>Buttons, sliders, joysticks, and more!</td></tr>
             <tr><td>🌍 Multi-language</td><td>English, French, Arabic</td></tr>
             <tr><td>🎨 Themes</td><td>Multiple color themes to choose from</td></tr>
             <tr><td>💾 Save & Load</td><td>Export/import your designs</td></tr>
@@ -584,7 +584,7 @@
             <tr><th>Button</th><th>What it does</th></tr>
             <tr><td>✏️ <strong>Build</strong></td><td>Design your remote</td></tr>
             <tr><td>▶️ <strong>Play</strong></td><td>Use your remote</td></tr>
-            <tr><td>🎮 <strong>Demo</strong></td><td>Try all 12 widgets</td></tr>
+            <tr><td>🎮 <strong>Demo</strong></td><td>Try all 16 widgets</td></tr>
             <tr><td>📦 <strong>Export</strong></td><td>Save design as JSON</td></tr>
             <tr><td>📂 <strong>Import</strong></td><td>Load a saved design</td></tr>
             <tr><td>📄 <strong>Code</strong></td><td>Get MakeCode for micro:bit</td></tr>
@@ -766,6 +766,42 @@ SET dpad_id right 1    ← Right pressed</code></pre>
 }</code></pre>
             <p><strong>Use it for:</strong> ⏱️ Game timer, 🍳 Cooking timer, 🏃 Race countdown</p>
         </div>
+
+        <!-- Select -->
+        <div class="widget-card input">
+            <h4><span class="widget-icon">🔽</span> Select</h4>
+            <p><strong>What it does:</strong> Choose one option from a dropdown list</p>
+            <p><strong>Message format:</strong></p>
+            <pre><code>SET select_id Medium    ← Sends the chosen option's text</code></pre>
+            <p><strong>MakeCode example:</strong></p>
+            <pre><code><span class="comment">// Pick a driving mode</span>
+<span class="keyword">if</span> (id == <span class="string">"select_mode"</span>) {
+    <span class="keyword">if</span> (val == <span class="string">"Slow"</span>) {
+        maxSpeed = <span class="number">30</span>
+    } <span class="keyword">else if</span> (val == <span class="string">"Medium"</span>) {
+        maxSpeed = <span class="number">60</span>
+    } <span class="keyword">else if</span> (val == <span class="string">"Fast"</span>) {
+        maxSpeed = <span class="number">100</span>
+    }
+    serial.<span class="function">writeLine</span>(<span class="string">"Mode: "</span> + val)
+}</code></pre>
+            <p><strong>Use it for:</strong> 🎮 Game modes, 🎨 Color picker, 🏎️ Speed presets, 🎵 Song selection</p>
+        </div>
+
+        <!-- Edit Field -->
+        <div class="widget-card input">
+            <h4><span class="widget-icon">⌨️</span> Edit Field</h4>
+            <p><strong>What it does:</strong> Send whatever text you type</p>
+            <p><strong>Message format:</strong></p>
+            <pre><code>SET editfield_id Hello there!    ← Whatever you typed</code></pre>
+            <p><strong>MakeCode example:</strong></p>
+            <pre><code><span class="comment">// Show typed text on the micro:bit</span>
+<span class="keyword">if</span> (id == <span class="string">"editfield_name"</span>) {
+    basic.<span class="function">showString</span>(val)
+    serial.<span class="function">writeLine</span>(<span class="string">"Typed: "</span> + val)
+}</code></pre>
+            <p><strong>Use it for:</strong> 💬 Custom messages, 🏷️ Naming things, 🔢 Entering codes, 📝 Notes</p>
+        </div>
     </section>
 
     <!-- Output Widgets -->
@@ -836,6 +872,29 @@ SET dpad_id right 1    ← Right pressed</code></pre>
             <pre><code><span class="comment">// Send percentage 0-100</span>
 <span class="function">sendValue</span>(<span class="string">"battery_power"</span>, <span class="string">"75"</span>)</code></pre>
             <p><strong>Use it for:</strong> 🔋 Battery level, ⛽ Fuel gauge, 💧 Water level</p>
+        </div>
+
+        <!-- Sound -->
+        <div class="widget-card output">
+            <h4><span class="widget-icon">🔊</span> Sound</h4>
+            <p><strong>What it does:</strong> Play a sound effect on the phone</p>
+            <p><strong>How to update from micro:bit:</strong></p>
+            <pre><code><span class="comment">// Play one of 5 built-in effects</span>
+<span class="function">sendValue</span>(<span class="string">"sound_fx"</span>, <span class="string">"beep"</span>)      <span class="comment">// short beep</span>
+<span class="function">sendValue</span>(<span class="string">"sound_fx"</span>, <span class="string">"success"</span>)   <span class="comment">// happy chime</span>
+<span class="function">sendValue</span>(<span class="string">"sound_fx"</span>, <span class="string">"warn"</span>)      <span class="comment">// warning tone</span>
+<span class="function">sendValue</span>(<span class="string">"sound_fx"</span>, <span class="string">"danger"</span>)    <span class="comment">// uh-oh tone</span>
+<span class="function">sendValue</span>(<span class="string">"sound_fx"</span>, <span class="string">"toggle"</span>)    <span class="comment">// click</span></code></pre>
+            <p><strong>Use it for:</strong> 🚨 Alarms, ✅ Confirmations, 🎮 Game sounds, ⚠️ Warnings</p>
+        </div>
+
+        <!-- Notification -->
+        <div class="widget-card output">
+            <h4><span class="widget-icon">🔔</span> Notification</h4>
+            <p><strong>What it does:</strong> Show a big attention-grabbing banner on the phone</p>
+            <p><strong>How to update from micro:bit:</strong></p>
+            <pre><code><span class="function">sendValue</span>(<span class="string">"alert_box"</span>, <span class="string">"Game Over!"</span>)</code></pre>
+            <p><strong>Use it for:</strong> 🎉 Win/lose messages, ⚠️ Important alerts, 📢 Announcements, 🚨 Emergency stop</p>
         </div>
     </section>
 
