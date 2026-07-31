@@ -1802,6 +1802,9 @@ function generateDemoCode(cfg) {
   const timeStr = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
   const cfgSize = b64.length;
   const nbChunks = Math.ceil(cfgSize / 18);
+  // Readable copy of the layout, so the base64 blob below isn't opaque —
+  // handy for editing CFG by hand or diffing layouts without decoding first.
+  const cfgJsonComment = JSON.stringify(cfg, null, 2).split('\n').map(l => '// ' + l).join('\n');
   const totalWidgets = cfg.widgets.length;
   
   // Count widget types
@@ -1862,6 +1865,9 @@ let cfgSent = false
 let blinkState = false
 
 // 📦 Remote layout config (Base64 encoded, ${cfgSize} bytes, ${nbChunks} chunks)
+// Decoded below for reference (not read by the code — edit the layout in
+// the Build tab and re-export to regenerate the base64 line under it):
+${cfgJsonComment}
 const CFG = "${b64}"
 
 // ═══════════════════════════════════════════════════════════════
