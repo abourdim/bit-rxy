@@ -1,7 +1,7 @@
 // Bumped on every push to this repo — shown in the header next to the
 // subtitle. Simple incrementing build number, not semver: there's no
 // meaningful "breaking change" concept for a single-page kid tool.
-const APP_VERSION = 'v1.2';
+const APP_VERSION = 'v1.3';
 
 window.__ovl = window.__ovl || { t:null };
 
@@ -5859,14 +5859,19 @@ function bindRuntimeWidget(el, w) {
       break;
     case 'slider':
       let sliderEl = el.querySelector('.rt-slider');
-      // Update display during drag (no BLE send)
+      // Live-update both the display and BLE during drag -- safe to call
+      // send() on every input event because it queues through bleSend's
+      // own 200ms-coalesced writer (same pattern as the joystick), not a
+      // direct BLE write per event.
       sliderEl.oninput = e => {
-        el.querySelector('.rt-slider-val').textContent = Math.round(e.target.value);
+        const val = Math.round(parseFloat(e.target.value) || 0);
+        el.querySelector('.rt-slider-val').textContent = val;
+        send(`SET ${w.id} ${val}`);
       };
-      // Only send on release (onChange fires when user stops dragging)
+      // Also send on release, so the final value always lands even if the
+      // last drag-frame's coalesced send got superseded before it fired.
       sliderEl.onchange = e => {
         const val = Math.round(parseFloat(e.target.value) || 0);
-        console.log('[SLIDER] Sending final value:', val);
         send(`SET ${w.id} ${val}`);
       };
       break;
