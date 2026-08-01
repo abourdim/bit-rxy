@@ -1,7 +1,7 @@
 // Bumped on every push to this repo — shown in the header next to the
 // subtitle. Simple incrementing build number, not semver: there's no
 // meaningful "breaking change" concept for a single-page kid tool.
-const APP_VERSION = 'v1.3';
+const APP_VERSION = 'v1.4';
 
 window.__ovl = window.__ovl || { t:null };
 
@@ -6488,6 +6488,13 @@ function updateRuntimeWidget(id, val) {
   }
   switch (w.t) {
     case 'slider': el.querySelector('.rt-slider').value = val; el.querySelector('.rt-slider-val').textContent = val; break;
+    case 'editfield': {
+      const input = el.querySelector('.rt-editfield');
+      // Don't clobber text the user is actively typing — only sync when
+      // the field isn't focused (e.g. a device-side echo/reset).
+      if (input && document.activeElement !== input) input.value = val;
+      break;
+    }
     case 'toggle': el.querySelector('.rt-toggle').classList.toggle('on', val === '1'); el.querySelector('.rt-toggle').textContent = val === '1' ? '😃' : '😴'; break;
     case 'led': {
       const ledEl = el.querySelector('.rt-led');
