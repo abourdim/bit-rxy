@@ -3360,9 +3360,16 @@ function enterFullscreenAndFit() {
 function zoomToFitScreen() {
   const grid = $('#runtimeGrid');
   if (!grid) return;
-  
-  const gridW = grid.offsetWidth;
-  const gridH = grid.offsetHeight;
+
+  // scrollWidth/scrollHeight (not offsetWidth/offsetHeight) — the grid has
+  // overflow:hidden plus a viewport-relative max-height/max-width in
+  // fullscreen, so offsetWidth/offsetHeight report the CLAMPED box, not the
+  // true widget extent. Scaling against the clamped size under-shrinks the
+  // grid, and whatever content fell outside the clamp (the last-packed,
+  // smallest widgets from auto-arrange) stays clipped forever regardless of
+  // the scale applied afterward, since transform can't undo layout clipping.
+  const gridW = grid.scrollWidth;
+  const gridH = grid.scrollHeight;
   
   // Available screen space
   const availW = window.innerWidth * 0.88;

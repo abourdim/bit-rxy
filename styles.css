@@ -589,8 +589,12 @@ body.runtime-fullscreen #runtimeTitle {
   margin: 0 !important;
 }
 body.runtime-fullscreen #runtimeGrid {
-  max-width: 98vw !important;
-  max-height: calc(100vh - 60px) !important;
+  /* No max-width/max-height here on purpose: zoomToFitScreen()'s transform
+     is what fits the grid to the viewport, computed from its true content
+     size. A viewport-relative cap on the box itself fights that — it clamps
+     the (overflow:hidden) layout box before the transform runs, permanently
+     clipping whatever content fell outside the cap, which no scale-down
+     afterward can restore. */
   margin: 0 auto !important;
   border: 3px solid var(--accent) !important;
   transform-origin: center center !important;
@@ -1453,13 +1457,20 @@ body.theme-sunset .canvas { background: linear-gradient(135deg, #6a0572, #ab0a78
   min-height: 400px;
 }
 #runtimeTitle { font-size: 1.6rem; font-weight: 800; color: var(--accent); margin-bottom: 20px; text-align: center; }
-#runtimeGrid { 
-  position: relative; 
-  background: var(--card); 
-  border: 3px solid var(--surface); 
+#runtimeGrid {
+  position: relative;
+  background: var(--card);
+  border: 3px solid var(--surface);
   border-radius: 20px;
   margin: 0 auto;
   overflow: hidden;
+  /* #runtimeContent is a column flexbox; without this, flex-shrink's
+     default of 1 compresses the grid's real layout height to fit the
+     container regardless of the JS-set inline height, and overflow:hidden
+     then clips whatever content fell below the compressed height — before
+     zoomToFitScreen()'s transform:scale ever gets a chance to help, since
+     transform doesn't participate in flex layout sizing. */
+  flex-shrink: 0;
 }
 
 /* Runtime Widgets */
