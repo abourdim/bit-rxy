@@ -2581,7 +2581,10 @@ function autoArrangeWidgets() {
   
   saveUndoState();
   
-  const padding = 15;
+  // 40px (not 15px) so glow/box-shadow effects (LED pulse, neon slider/joystick,
+  // pressed-button glow — some reach 80-120px blur radius) have room to fade
+  // before reaching the neighboring widget instead of visually bleeding onto it.
+  const padding = 40;
   const canvas = $('#canvas');
   const canvasW = canvas?.offsetWidth || 500;
   
