@@ -2363,7 +2363,7 @@ try{ placeToolbarWhereHintWas(); }catch(e){}
   
   // Load saved theme
   try {
-    const savedTheme = localStorage.getItem('widget_theme');
+    const savedTheme = localStorage.getItem('app_theme');
     if (savedTheme && THEMES[savedTheme]) setTheme(savedTheme);
   } catch(e) {}
   
@@ -2393,17 +2393,6 @@ try{ placeToolbarWhereHintWas(); }catch(e){}
   $$('.theme-dot').forEach(dot => {
     dot.onclick = () => setTheme(dot.dataset.theme);
   });
-  
-  // Load saved theme
-  try {
-    const savedTheme = localStorage.getItem('app_theme');
-    if (savedTheme) {
-      document.body.classList.remove('theme-dark', 'theme-ocean', 'theme-space', 'theme-candy', 'theme-forest', 'theme-neon');
-      if (savedTheme !== 'dark') document.body.classList.add('theme-' + savedTheme);
-      $$('.theme-dot').forEach(d => d.classList.toggle('active', d.dataset.theme === savedTheme));
-      state.theme = savedTheme;
-    }
-  } catch(e) {}
   
   // Fullscreen buttons
   const fullscreenBtn = $('#fullscreenBtn');
@@ -3287,8 +3276,11 @@ function switchTab(tab, opts = {}) {
     builderView.classList.remove('active');
     runtimeView.classList.add('active');
     
-    // IMPORTANT: Build config from current widgets and render before starting demo
-    if (state.widgets && state.widgets.length > 0) {
+    // IMPORTANT: Build config from current widgets and render before starting demo.
+    // Skipped when we just loaded a live config from a connected device (see the
+    // CFGEND handler in processLine()) — otherwise this clobbers the device's config
+    // with whatever's sitting in the Build tab's canvas.
+    if (!opts.skipConfigRebuild && state.widgets && state.widgets.length > 0) {
       state.config = { title: $('#titleInput')?.value || 'My Remote', widgets: state.widgets };
       renderRuntime();
     }
@@ -3644,16 +3636,6 @@ function alignCenterV() {
   toast('⫿ Aligned center V', 'success');
 }
 
-// === THEME FUNCTIONS ===
-function setTheme(name) {
-  state.theme = name;
-  document.body.className = document.body.className.replace(/theme-\w+/g, '');
-  if (name !== 'dark') document.body.classList.add('theme-' + name);
-  const themeName = tr('themeNames.' + name) || (name.charAt(0).toUpperCase() + name.slice(1));
-  toast(tr('toast.themeChanged', {theme: themeName}), 'success');
-  try { localStorage.setItem('widget_theme', name); } catch(e) {}
-}
-
 function cycleTheme() {
   const themes = Object.keys(THEMES);
   const idx = (themes.indexOf(state.theme) + 1) % themes.length;
@@ -3702,7 +3684,7 @@ function renderLayersPanel() {
     <div class="layers-list">${state.widgets.map((w, i) => `
       <div class="layer-item ${w.id === state.selected ? 'selected' : ''}" onclick="state.selected='${w.id}';updateSelectionUI();renderLayersPanel()">
         <span class="layer-icon">${ICONS[w.t]}</span>
-        <span>${w.label || w.id}</span>
+        <span>${esc(w.label) || w.id}</span>
         <span class="layer-vis visible" onclick="event.stopPropagation();toggleWidgetVis('${w.id}')">👁</span>
       </div>
     `).reverse().join('')}</div>
@@ -5236,7 +5218,7 @@ function processLine(line) {
       // fullscreen, just the normal Play view. (The Play tab's actual
       // data-tab value is "runtime", not "play" — switchTab()'s own tab-
       // highlighting keys off that exact string.)
-      switchTab('runtime', { skipFullscreen: true });
+      switchTab('runtime', { skipFullscreen: true, skipConfigRebuild: true });
       offerLoadCfgIntoBuild(state.config);
     }
     catch(e) { console.error('[BLE] Config parse error:', e); hideLoading();
