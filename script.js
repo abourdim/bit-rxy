@@ -7829,16 +7829,49 @@ document.addEventListener('click', (e)=>{
     exportTxt, exportJson, toggle, open:()=>setCollapsed(false)
   };
 
-  // Silence DevTools console completely, but capture into logs:
-  console.log   = (...a)=>push('log',fmt(a));
-  console.info  = (...a)=>push('info',fmt(a));
-  console.debug = (...a)=>push('debug',fmt(a));
-  console.warn  = (...a)=>push('warn',fmt(a));
-  console.error = (...a)=>push('error',fmt(a));
+  // Capture into the in-app log panel AND still print to DevTools.
+  //
+  // This used to silence DevTools completely, which made the app
+  // effectively undebuggable from the browser console: every console.log
+  // in this file vanished, and the only lines that ever appeared were
+  // browser-generated ones (iframe sandbox, favicon 404, CORS). That
+  // looks exactly like "the code never ran", and it sent a debugging
+  // session chasing BLE ghosts that were really just invisible logs.
+  //
+  // Native methods are captured BEFORE the override so forwarding cannot
+  // recurse. Add ?quiet to the URL to restore the old silent behaviour.
+  const nativeConsole = {
+    log: console.log.bind(console),
+    info: console.info.bind(console),
+    debug: console.debug.bind(console),
+    warn: console.warn.bind(console),
+    error: console.error.bind(console)
+  };
+  const QUIET = /[?&]quiet\b/.test(location.search);
+  function tee(level, native) {
+    return (...a) => {
+      push(level, fmt(a));
+      if (!QUIET) { try { native(...a); } catch (e) {} }
+    };
+  }
+  console.log   = tee('log',   nativeConsole.log);
+  console.info  = tee('info',  nativeConsole.info);
+  console.debug = tee('debug', nativeConsole.debug);
+  console.warn  = tee('warn',  nativeConsole.warn);
+  console.error = tee('error', nativeConsole.error);
 
-  // Capture uncaught errors (and prevent console spam)
-  window.addEventListener('error', (e)=>{ push('error', e.message || 'Uncaught error'); e.preventDefault && e.preventDefault(); }, true);
-  window.addEventListener('unhandledrejection', (e)=>{ push('error', String(e.reason)); e.preventDefault && e.preventDefault(); }, true);
+  // Capture uncaught errors. preventDefault() here suppresses the
+  // browser's own reporting, so an uncaught exception left NO trace in
+  // DevTools at all — no message, no stack, no source line. Only do that
+  // in ?quiet mode; otherwise let the error surface normally.
+  window.addEventListener('error', (e)=>{
+    push('error', e.message || 'Uncaught error');
+    if (QUIET && e.preventDefault) e.preventDefault();
+  }, true);
+  window.addEventListener('unhandledrejection', (e)=>{
+    push('error', String(e.reason));
+    if (QUIET && e.preventDefault) e.preventDefault();
+  }, true);
 
   // Wire UI
   window.addEventListener('DOMContentLoaded', ()=>{
