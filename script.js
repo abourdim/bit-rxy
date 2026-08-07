@@ -1549,6 +1549,14 @@ function modelOptionsForType(t){
 const bleSend = {
   isWriting: false,     // Lock: true while a write is in progress
   pendingMsg: null,     // Latest message waiting to be sent (replaces previous)
+  // A small FIFO for discrete, must-not-drop messages (D-pad press and
+  // release). pendingMsg's "latest wins" coalescing is right for
+  // continuous controls — joysticks, sliders, XY pads — where only the
+  // newest value matters. It is wrong for a D-pad, whose four
+  // directions share ONE widget id: a quick direction change could
+  // overwrite an unflushed press or release before it ever reached the
+  // radio. The queue is drained ahead of pendingMsg.
+  queue: [],
   minInterval: 200,     // Minimum ms between writes for BLE stability
   lastSendTime: 0,      // Timestamp of last successful send
   retryCount: 0,        // Track consecutive failures
@@ -1564,14 +1572,34 @@ async function bleWrite(msg) {
   
   try {
     const data = encoder.encode(msg + '\n');
-    
-    // Use writeValueWithoutResponse (faster, but still must be serialized!)
-    if (state.ble.writeChar.writeValueWithoutResponse) {
-      await state.ble.writeChar.writeValueWithoutResponse(data);
-    } else {
-      await state.ble.writeChar.writeValue(data);
+
+    // Split into <=20-byte packets. The micro:bit negotiates the default
+    // ATT MTU of 23, which leaves exactly 20 bytes of payload. A longer
+    // write is NOT rejected — it is silently truncated, so the trailing
+    // '\n' never arrives, the firmware's uartReadUntil(NewLine) waits
+    // forever for a line that never completes, and the command vanishes
+    // with no error on either side.
+    //
+    // This broke several of the built-in widgets:
+    //   SET dpad_nav right 1   = 21 bytes -> lost
+    //   SET joy_move 180 100   = 21 bytes -> lost
+    //   SET slider_speed 100   = 21 bytes -> worked below 100, died at 100
+    //
+    // The reverse direction was always fine: notifications arrive
+    // pre-split and onNotify() reassembles them via state.rxBuffer. No
+    // firmware change is needed here either — the UART service buffers
+    // incoming bytes, so uartReadUntil() reassembles these chunks.
+    const MAX_PACKET = 20;
+    for (let off = 0; off < data.length; off += MAX_PACKET) {
+      const chunk = data.subarray(off, off + MAX_PACKET);
+      // Use writeValueWithoutResponse (faster, but still must be serialized!)
+      if (state.ble.writeChar.writeValueWithoutResponse) {
+        await state.ble.writeChar.writeValueWithoutResponse(chunk);
+      } else {
+        await state.ble.writeChar.writeValue(chunk);
+      }
     }
-    
+
     console.log('[BLE] Sent:', msg);
     bleSend.retryCount = 0; // Reset on success
     return true;
@@ -1600,8 +1628,8 @@ async function processWriteQueue() {
   if (bleSend.isWriting) return;
   
   // Nothing to send
-  if (!bleSend.pendingMsg) return;
-  
+  if (bleSend.queue.length === 0 && !bleSend.pendingMsg) return;
+
   // Check minimum interval
   const now = Date.now();
   const timeSinceLastSend = now - bleSend.lastSendTime;
@@ -1610,12 +1638,20 @@ async function processWriteQueue() {
     setTimeout(processWriteQueue, bleSend.minInterval - timeSinceLastSend + 5);
     return;
   }
-  
-  // Lock, grab message, clear pending
+
+  // Lock, grab message, clear pending. The FIFO (discrete messages such
+  // as D-pad press/release) always drains before the latest-wins slot
+  // used by continuous controls, so a burst of presses cannot coalesce
+  // each other away.
   bleSend.isWriting = true;
-  const msg = bleSend.pendingMsg;
-  bleSend.pendingMsg = null;
-  
+  let msg;
+  if (bleSend.queue.length > 0) {
+    msg = bleSend.queue.shift();
+  } else {
+    msg = bleSend.pendingMsg;
+    bleSend.pendingMsg = null;
+  }
+
   try {
     const success = await bleWrite(msg);
     if (success) {
@@ -1624,9 +1660,9 @@ async function processWriteQueue() {
   } finally {
     // Always unlock
     bleSend.isWriting = false;
-    
+
     // If new message arrived while we were writing, process it
-    if (bleSend.pendingMsg) {
+    if (bleSend.queue.length > 0 || bleSend.pendingMsg) {
       // Small delay to respect minimum interval
       setTimeout(processWriteQueue, bleSend.minInterval);
     }
@@ -1645,6 +1681,17 @@ function send(msg) {
   bleSend.pendingMsg = msg;
   
   // Trigger queue processing (will respect lock and interval)
+  processWriteQueue();
+}
+
+// Reliable send — for discrete, must-not-drop messages (D-pad press and
+// release) where losing one is a real bug rather than just a skipped
+// intermediate frame. Continuous controls should keep using send().
+function sendReliable(msg) {
+  if (!state.ble.connected) return;
+  msg = String(msg || '').replace(/[\r\n]+/g, '').trim();
+  if (!msg) return;
+  bleSend.queue.push(msg);
   processWriteQueue();
 }
 
@@ -1751,7 +1798,10 @@ function generateDemoCode(cfg) {
   // Generate handler code for each widget
   let buttonCode = buttons.map(w => `    // Button: ${w.label || w.id}
     if (id == "${w.id}" && val == "1") {
-        basic.showIcon(IconNames.Heart)
+        // interval 0 = draw without pausing. This runs inside the BLE
+        // receive handler, and basic.show* normally sleeps ~600ms after
+        // drawing, which would block the next incoming command.
+        basic.showIcon(IconNames.Heart, 0)
         // Add your code here!
     }`).join('\n');
   
@@ -1765,9 +1815,9 @@ function generateDemoCode(cfg) {
   let toggleCode = toggles.map(w => `    // Toggle: ${w.label || w.id} (val = "1" or "0")
     if (id == "${w.id}") {
         if (val == "1") {
-            basic.showIcon(IconNames.Yes)
+            basic.showIcon(IconNames.Yes, 0)
         } else {
-            basic.showIcon(IconNames.No)
+            basic.showIcon(IconNames.No, 0)
         }
     }`).join('\n');
   
@@ -1778,12 +1828,12 @@ function generateDemoCode(cfg) {
         let dist = parseInt(parts[1])   // 0-100 (0=center, 100=edge)
         // Use for steering, movement, etc!
         if (dist > 10) {
-            if (angle < 45 || angle >= 315) basic.showArrow(ArrowNames.East)
-            else if (angle < 135) basic.showArrow(ArrowNames.South)
-            else if (angle < 225) basic.showArrow(ArrowNames.West)
-            else basic.showArrow(ArrowNames.North)
+            if (angle < 45 || angle >= 315) basic.showArrow(ArrowNames.East, 0)
+            else if (angle < 135) basic.showArrow(ArrowNames.South, 0)
+            else if (angle < 225) basic.showArrow(ArrowNames.West, 0)
+            else basic.showArrow(ArrowNames.North, 0)
         } else {
-            basic.showIcon(IconNames.SmallDiamond)
+            basic.showIcon(IconNames.SmallDiamond, 0)
         }
     }`).join('\n');
 
@@ -1792,20 +1842,20 @@ function generateDemoCode(cfg) {
         let parts = val.split(" ")
         let dir = parts[0]
         let pressed = parts[1] == "1"
-        serial.writeLine("DPAD dir=[" + dir + "] pressed=" + pressed)
+        dbg("DPAD dir=[" + dir + "] pressed=" + pressed)
         if (pressed) {
             basic.clearScreen()
             if (dir == "up") {
-                basic.showArrow(ArrowNames.North)
+                basic.showArrow(ArrowNames.North, 0)
             } else if (dir == "down") {
-                basic.showArrow(ArrowNames.South)
+                basic.showArrow(ArrowNames.South, 0)
             } else if (dir == "left") {
-                basic.showArrow(ArrowNames.West)
+                basic.showArrow(ArrowNames.West, 0)
             } else if (dir == "right") {
-                basic.showArrow(ArrowNames.East)
+                basic.showArrow(ArrowNames.East, 0)
             } else {
-                serial.writeLine("DPAD unknown dir: [" + dir + "]")
-                basic.showString(dir.charAt(0))
+                dbg("DPAD unknown dir: [" + dir + "]")
+                basic.showString(dir.charAt(0), 0)
             }
         } else {
             basic.clearScreen()
@@ -1832,7 +1882,7 @@ function generateDemoCode(cfg) {
 
   let selectCode = selects.map(w => `    // Select: ${w.label || w.id} (val = the chosen option's text)
     if (id == "${w.id}") {
-        serial.writeLine("Chose: " + val)
+        dbg("Chose: " + val)
         // Compare val to your option strings, e.g.:
         // if (val == "Fast") { ... }
     }`).join('\n');
@@ -1918,6 +1968,29 @@ let cfgSent = false
 let blinkState = false
 let loopTick = 0
 
+// Debug logging, OFF by default and that matters: serial.writeLine()
+// BLOCKS THE CALLING FIBER when nothing is draining the USB serial
+// buffer — the normal case once the cable is unplugged and the micro:bit
+// runs on BLE alone. Logging on every command from inside the receive
+// handler therefore works perfectly while a serial monitor is open, then
+// hangs the moment you go untethered. Flip this to true only while USB
+// and a serial monitor are both connected.
+let debugEnabled = false
+function dbg(msg: string) {
+    if (debugEnabled) serial.writeLine(msg)
+}
+
+// True only while a phone/browser is actually connected. Every
+// uartWriteLine below is gated on it, because writing to a UART with no
+// peer BLOCKS THE CALLING FIBER once the buffer stops draining — and a
+// wedged BLE stack makes the NEXT connect hang in service discovery.
+let btConnected = false
+bluetooth.onBluetoothConnected(function () { btConnected = true })
+bluetooth.onBluetoothDisconnected(function () {
+    btConnected = false
+    cfgSent = false
+})
+
 // 📦 Remote layout config (Base64 encoded, ${cfgSize} bytes, ${nbChunks} chunks)
 // Decoded below for reference (not read by the code — edit the layout in
 // the Build tab and re-export to regenerate the base64 line under it):
@@ -1933,14 +2006,27 @@ bluetooth.onUartDataReceived(serial.delimiters(Delimiters.NewLine), function() {
     let cmd = bluetooth.uartReadUntil(serial.delimiters(Delimiters.NewLine))
     
     if (cmd == "GETCFG") {
+        // The pause between chunks is REQUIRED. Without it the writes
+        // outrun the BLE connection interval and chunks are dropped —
+        // the app then sits at 0% forever waiting for a layout that
+        // never fully arrives. 20ms is comfortable; raise it to 35 if a
+        // particular device still struggles.
+        basic.pause(35)
         bluetooth.uartWriteLine("CFGBEGIN")
+        basic.pause(35)
         for (let i = 0; i < CFG.length; i += 18) {
             bluetooth.uartWriteLine("CFG " + CFG.substr(i, 18))
+            basic.pause(20)
         }
         bluetooth.uartWriteLine("CFGEND")
         cfgSent = true
-        basic.showIcon(IconNames.Yes)
-    } 
+        // interval 0 so this does NOT pause. Every basic.show* renders
+        // and then sleeps for its interval (~600ms by default), and this
+        // runs inside the BLE receive handler — a blocking call here
+        // means the next command arrives while we are still busy and
+        // gets dropped.
+        basic.showIcon(IconNames.Yes, 0)
+    }
     else if (cmd.indexOf("SET ") == 0) {
         let parts = cmd.substr(4).split(" ")
         let id = parts[0]
@@ -1954,8 +2040,8 @@ bluetooth.onUartDataReceived(serial.delimiters(Delimiters.NewLine), function() {
 // ═══════════════════════════════════════════════════════════════
 
 function handleWidget(id: string, val: string) {
-    serial.writeLine(id + " = " + val)
-    
+    dbg(id + " = " + val)
+
 ${buttonCode || '    // No buttons in this remote'}
 
 ${sliderCode || '    // No sliders in this remote'}
@@ -1980,7 +2066,10 @@ ${editfieldCode || '    // No edit fields in this remote'}
 // ═══════════════════════════════════════════════════════════════
 
 function sendValue(id: string, val: string) {
-    if (cfgSent) bluetooth.uartWriteLine("UPD " + id + " " + val)
+    // btConnected as well as cfgSent: cfgSent only tracks whether the
+    // layout was delivered and stays true across a link drop, and
+    // writing to a dead UART blocks the fiber (see the flag's comment).
+    if (btConnected && cfgSent) bluetooth.uartWriteLine("UPD " + id + " " + val)
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -2278,7 +2367,12 @@ try{ placeToolbarWhereHintWas(); }catch(e){}
   // Buttons
   $('#soundBtn').onclick = () => { state.soundOn = !state.soundOn; updateSoundUI(); if (state.soundOn) beepClick(); };
   updateSoundUI();
-  $('#bleBtn').onclick = connectBle;
+  // Toggle: connect when idle, disconnect when live. It used to call
+  // connectBle() unconditionally, so clicking it while connected
+  // re-opened the device picker instead of hanging up — there was no way
+  // to disconnect from the app at all, and the firmware never saw a
+  // disconnect event.
+  $('#bleBtn').onclick = toggleBle;
   $('#connectBtn').onclick = connectBle;
   $('#demoBtn').onclick = showDemo;
   
@@ -5032,6 +5126,9 @@ async function connectBle() {
     return;
   }
   state._allowLoadingOverlay = true;
+  // Declared out here so the catch block can tear down a half-open
+  // connection; assigned from requestDevice() inside the try.
+  let device = null;
   try {
     // Clean up any previous connection before starting a new one. Web
     // Bluetooth's getCharacteristic() returns a fresh wrapper object on
@@ -5050,6 +5147,15 @@ async function connectBle() {
       state.ble.device.gatt.disconnect();
     }
 
+    // Let the BLE stack settle after any teardown before asking it to
+    // build a new link. Reconnecting immediately produced "GATT
+    // connected" followed instantly by "NetworkError: GATT Server is
+    // disconnected" on the very next call.
+    const sinceDisconnect = Date.now() - lastDisconnectAt;
+    if (sinceDisconnect < BLE_SETTLE_MS) {
+      await new Promise(resolve => setTimeout(resolve, BLE_SETTLE_MS - sinceDisconnect));
+    }
+
     console.log('[BLE] Requesting device...');
     // Accept ALL devices in the chooser (matches face-tracking app).
     // Filtering by namePrefix 'BBC micro:bit' here was hiding compatible
@@ -5058,35 +5164,57 @@ async function connectBle() {
     // slightly different name-packet shape are silently dropped).
     // We still gate functionality post-connect by trying to acquire
     // UART_SERVICE — non-compatible devices simply fail on getPrimaryService.
-    const device = await navigator.bluetooth.requestDevice({
+    device = await navigator.bluetooth.requestDevice({
       acceptAllDevices: true,
       optionalServices: [UART_SERVICE]
     });
     console.log('[BLE] Device selected:', device.name);
-    
-    device.addEventListener('gattserverdisconnected', () => {
+
+    // Claim this device as the live one BEFORE gatt.connect(). The guard
+    // below must not key off state.ble.device — that is only assigned
+    // after every characteristic lookup succeeds, so during setup it is
+    // still null and a GENUINE disconnect of the device being connected
+    // would be dismissed as "stale", only to resurface several calls
+    // later as a confusing NetworkError.
+    currentDevice = device;
+    disconnectHandled = false;
+
+    // Chrome returns the SAME BluetoothDevice object for a given device,
+    // so addEventListener here accumulates one listener per connect
+    // attempt — a single disconnect then ran the teardown several times.
+    // Drop the previous listener before attaching a new one.
+    if (device._rxyDisconnectListener) {
+      device.removeEventListener('gattserverdisconnected', device._rxyDisconnectListener);
+    }
+    const onGattDisconnected = () => {
+      if (currentDevice !== device) {
+        console.log('[BLE] Ignoring stale disconnect from a previous device');
+        return;
+      }
       console.log('[BLE] GATT server disconnected event');
       onDisconnect();
-    });
-    
+    };
+    device._rxyDisconnectListener = onGattDisconnected;
+    device.addEventListener('gattserverdisconnected', onGattDisconnected);
+
     console.log('[BLE] Connecting to GATT server...');
-    const server = await device.gatt.connect();
+    const server = await withBleTimeout(device.gatt.connect(), 'gatt.connect');
     console.log('[BLE] GATT connected');
-    
+
     console.log('[BLE] Getting UART service...');
-    const service = await server.getPrimaryService(UART_SERVICE);
+    const service = await withBleTimeout(server.getPrimaryService(UART_SERVICE), 'getPrimaryService');
     console.log('[BLE] UART service found');
-    
+
     console.log('[BLE] Getting TX characteristic...');
-    const notifyChar = await service.getCharacteristic(UART_TX_CHAR);
+    const notifyChar = await withBleTimeout(service.getCharacteristic(UART_TX_CHAR), 'getCharacteristic TX');
     console.log('[BLE] TX characteristic found');
-    
+
     console.log('[BLE] Getting RX characteristic...');
-    const writeChar = await service.getCharacteristic(UART_RX_CHAR);
+    const writeChar = await withBleTimeout(service.getCharacteristic(UART_RX_CHAR), 'getCharacteristic RX');
     console.log('[BLE] RX characteristic found');
-    
+
     console.log('[BLE] Starting notifications...');
-    await notifyChar.startNotifications();
+    await withBleTimeout(notifyChar.startNotifications(), 'startNotifications');
     notifyChar.addEventListener('characteristicvaluechanged', onNotify);
     console.log('[BLE] Notifications started');
     
@@ -5097,18 +5225,93 @@ async function connectBle() {
     
     console.log('[BLE] Waiting 500ms then sending GETCFG...');
     showLoading(tr('loadingTitle'), tr('loadingRequesting'));
-    setTimeout(() => { 
-      console.log('[BLE] Sending GETCFG now');
-      state.rxBuffer = ''; 
-      send('GETCFG'); 
-    }, 500);
+    cfgAttempts = 0;
+    setTimeout(requestConfig, 500);
   } catch (err) {
     console.error('[BLE] Connection error:', err);
+    // Tear the half-built connection down. Without this the GATT server
+    // stays open on a connection we never finished setting up, and the
+    // next attempt inherits exactly the wedged state that makes service
+    // discovery hang — which is why retrying by clicking Connect again
+    // kept failing at the same step.
+    try {
+      if (device && device.gatt && device.gatt.connected) {
+        console.log('[BLE] Cleaning up half-open GATT connection');
+        device.gatt.disconnect();
+      }
+    } catch (cleanupErr) {
+      console.warn('[BLE] Cleanup failed:', cleanupErr.message);
+    }
+    currentDevice = null;
+    lastDisconnectAt = Date.now();
+    state._allowLoadingOverlay = false;
+    if (typeof hideLoading === 'function') hideLoading();
     toast(tr('toast.connectionFailed'), 'error');
   }
 }
 
+// Web Bluetooth's setup calls can hang FOREVER instead of rejecting:
+// "GATT connected" followed by "Getting UART service..." and then
+// nothing at all — getPrimaryService() never resolves and never throws,
+// so connectBle() sits inside an await with no error and no way back.
+// The UI just looks frozen, and clicking Connect again only starts a
+// second attempt that hangs in the same place. This happens when the
+// peripheral's GATT server is still holding the previous session.
+const BLE_OP_TIMEOUT_MS = 8000;
+function withBleTimeout(promise, label) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error('BLE timeout after ' + BLE_OP_TIMEOUT_MS + 'ms during ' + label));
+    }, BLE_OP_TIMEOUT_MS);
+    promise.then(
+      value => { clearTimeout(timer); resolve(value); },
+      err   => { clearTimeout(timer); reject(err); }
+    );
+  });
+}
+
+// The device currently being connected to, or connected. Set as soon as
+// requestDevice() resolves so the disconnect listener can tell a real
+// drop from a stale one for the whole setup window.
+let currentDevice = null;
+// Guards against onDisconnect() running twice for a single drop: an
+// explicit hang-up calls it directly AND the event calls it.
+let disconnectHandled = false;
+// When the last teardown happened, so a reconnect can wait for the BLE
+// stack to settle instead of racing it.
+let lastDisconnectAt = 0;
+const BLE_SETTLE_MS = 400;
+
+// Explicit hang-up. Dropping the GATT link lets the firmware's
+// onBluetoothDisconnected fire (stopping motors, etc). onDisconnect() is
+// called directly rather than waiting for the event so the UI updates
+// immediately; whichever path arrives second is absorbed by the guard.
+function disconnectBle() {
+  console.log('[BLE] Disconnect requested by user');
+  try {
+    if (state.ble.device?.gatt?.connected) state.ble.device.gatt.disconnect();
+  } catch (err) {
+    console.warn('[BLE] disconnect() threw:', err.message);
+  }
+  onDisconnect();
+}
+
+function toggleBle() {
+  if (state.ble.connected) disconnectBle();
+  else connectBle();
+}
+
 function onDisconnect() {
+  // One drop = one teardown. Both the explicit hang-up and the
+  // 'gattserverdisconnected' event route here, and previously both ran,
+  // producing two toasts and two beeps for a single disconnect.
+  if (disconnectHandled) {
+    console.log('[BLE] Disconnect already handled, ignoring duplicate');
+    return;
+  }
+  disconnectHandled = true;
+  currentDevice = null;
+  lastDisconnectAt = Date.now();
   console.log('[BLE] Disconnected!');
   state._allowLoadingOverlay = false;
   if (typeof hideLoading==='function') hideLoading();
@@ -5116,6 +5319,9 @@ function onDisconnect() {
     state.ble.notifyChar.removeEventListener('characteristicvaluechanged', onNotify);
   }
   state.ble = { device:null, server:null, service:null, notifyChar:null, writeChar:null, connected:false };
+  cancelConfigRetry();
+  bleSend.queue.length = 0;
+  bleSend.pendingMsg = null;
   updateBleUI();
   hideLoading();
   beepDanger();
@@ -5170,6 +5376,52 @@ function updateBleUI() {
 
 let configBuffer = '';
 var configChunks = 0;
+
+// GETCFG handshake with retry. Firmware answers within ~70ms, so if no
+// CFGBEGIN has arrived after CFG_RETRY_MS the request itself was lost,
+// not merely slow. Without a retry there was no recovery path at all:
+// one dropped GETCFG left the loader stuck at 0% until the user clicked
+// Connect again. Sent via sendReliable() so the FIFO carries it and
+// coalesced traffic can never overwrite it.
+//
+// The window must comfortably exceed a FULL transfer, not just the reply
+// latency — at ~35ms per chunk a large layout takes seconds, and a retry
+// firing mid-stream would reset configBuffer and make the firmware start
+// a second transfer that interleaves with the first.
+let cfgRetryTimer = null;
+let cfgAttempts = 0;
+const CFG_RETRY_MS = 6000;
+const CFG_MAX_ATTEMPTS = 4;
+
+function requestConfig() {
+  if (!state.ble.connected) {
+    console.warn('[BLE] requestConfig skipped — not connected');
+    return;
+  }
+  cfgAttempts++;
+  state.rxBuffer = '';
+  configBuffer = '';
+  configChunks = 0;
+  console.log('[BLE] Sending GETCFG (attempt ' + cfgAttempts + ')');
+  sendReliable('GETCFG');
+  clearTimeout(cfgRetryTimer);
+  cfgRetryTimer = setTimeout(() => {
+    if (!state.ble.connected) return;
+    if (cfgAttempts >= CFG_MAX_ATTEMPTS) {
+      console.error('[BLE] No CFGBEGIN after ' + cfgAttempts + ' attempts, giving up');
+      hideLoading();
+      toast(tr('toast.connectionFailed'), 'error');
+      return;
+    }
+    console.warn('[BLE] No CFGBEGIN within ' + CFG_RETRY_MS + 'ms, retrying GETCFG');
+    requestConfig();
+  }, CFG_RETRY_MS);
+}
+
+function cancelConfigRetry() {
+  clearTimeout(cfgRetryTimer);
+  cfgRetryTimer = null;
+}
 function onNotify(event) {
   const value = event.target.value;
   let str = '';
@@ -5191,9 +5443,15 @@ function processLine(line) {
   console.log('[BLE] Processing line:', line);
   if (line.startsWith('CFGBEGIN')) {
     console.log('[BLE] Config begin');
+    cancelConfigRetry();   // firmware answered — stop the retry timer
     configBuffer = '';
+    configChunks = 0;
   }
   else if (line.startsWith('CFG ')) {
+    // Also cancel here, not only on CFGBEGIN: if CFGBEGIN itself is
+    // dropped, chunks still prove the firmware is answering, and a retry
+    // mid-stream would corrupt the transfer.
+    cancelConfigRetry();
     configBuffer += line.substring(4);
     configChunks++;
     setLoadingProgress(Math.min(90, 12 + configChunks * 4), `${tr('loadingReceiving')} (${configChunks})`);
@@ -5941,7 +6199,7 @@ function bindRuntimeWidget(el, w) {
           btn.classList.add('active');
           beepClick();
           console.log('[DPAD] Pressed:', dir);
-          send(`SET ${w.id} ${dir} 1`); 
+          sendReliable(`SET ${w.id} ${dir} 1`);
         };
         
         const release = e => {
@@ -5956,7 +6214,7 @@ function bindRuntimeWidget(el, w) {
           releaseTimer = setTimeout(() => {
             dpadPressed = false;
             console.log('[DPAD] Released:', dir);
-            send(`SET ${w.id} ${dir} 0`);
+            sendReliable(`SET ${w.id} ${dir} 0`);
           }, 100);
         };
         
@@ -5973,9 +6231,14 @@ function bindRuntimeWidget(el, w) {
             release(e);
           }
         }, { passive: false });
-        
-        // EXTRA: Also add onclick as fallback
-        btn.onclick = press;
+
+        // NOTE: there used to be a `btn.onclick = press` "fallback" here.
+        // A real click fires mousedown -> mouseup -> click, so it called
+        // press() a second time on every tap. It was harmless only
+        // because the dpadPressed guard swallowed it — but that same
+        // guard, combined with the 100ms release debounce, is what makes
+        // a genuine second tap within 100ms disappear. mousedown and
+        // touchstart already cover every input path.
       });
       break;
     
