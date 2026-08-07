@@ -61,6 +61,8 @@
 <h1>bit-rxy — TODO / known issues</h1>
 <p class="sub">Found while building <strong>maqueen-rxy</strong> (a separate copy). Every item below
 is <em>already fixed and field-tested there</em> — this list is the port-back plan.</p>
+<p class="sub">Live app: <a href="https://abourdim.github.io/maqueen-rxy/">abourdim.github.io/maqueen-rxy</a>
+&nbsp;·&nbsp; Source: <a href="https://github.com/abourdim/maqueen-rxy">github.com/abourdim/maqueen-rxy</a></p>
 <p class="stamp">Recorded 2026-08-07 09:33 · bit-rxy itself is <strong>unmodified</strong>; this file is a note only.</p>
 
 <h2>Critical — silent data loss</h2>
@@ -220,8 +222,14 @@ with bit-rxy, so anything wrong in the template is copied into all of them. It c
   <li>Then 6–9 as a connect-reliability pass.</li>
   <li>10–12 whenever convenient.</li>
 </ul>
-<p class="why">All twelve are implemented in <code>27/maqueen-rxy/</code> — copy from there rather than
-rewriting, and note that the fixes carry explanatory comments about <em>why</em>, which are worth keeping.</p>
+<p class="why">All twelve are implemented and field-tested in <strong>maqueen-rxy</strong>. Copy from there
+rather than rewriting — the fixes carry explanatory comments about <em>why</em>, which are worth keeping.</p>
+<ul>
+  <li>Running app — <a href="https://abourdim.github.io/maqueen-rxy/">abourdim.github.io/maqueen-rxy</a></li>
+  <li>Source to copy from — <a href="https://github.com/abourdim/maqueen-rxy/blob/main/script.js"><code>script.js</code></a>
+      (app fixes 1, 6–12) and <a href="https://github.com/abourdim/maqueen-rxy/blob/main/firmware/maqueen-remote.ts"><code>firmware/maqueen-remote.ts</code></a>
+      (template fixes 2–5)</li>
+</ul>
 
 <footer>
   <img src="assets/workshop-diy-logo.svg" alt="" onerror="this.remove()">
