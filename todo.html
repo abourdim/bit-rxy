@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>bit-rxy — TODO / known issues</title>
+<style>
+  :root{
+    --bg:#0d1520; --panel:#152232; --ink:#e8f0fa; --muted:#93a8c4;
+    --accent:#00d4ff; --line:rgba(255,255,255,.12); --code:#0a1119;
+    --crit:#ff5252; --warn:#ff9f1c; --ok:#4ade80;
+  }
+  @media (prefers-color-scheme: light){
+    :root{ --bg:#f6f9fc; --panel:#fff; --ink:#12202f; --muted:#5b6f88;
+           --accent:#0077dd; --line:rgba(0,0,0,.12); --code:#eef3f8; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;padding:32px 20px 72px;background:var(--bg);color:var(--ink);
+       font:16px/1.65 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  .wrap{max-width:900px;margin:0 auto}
+  h1{font-size:2rem;margin:0 0 4px}
+  .sub{color:var(--muted);margin:0 0 8px}
+  .stamp{color:var(--muted);font-size:.85rem;margin:0 0 28px}
+  h2{font-size:1.3rem;margin:40px 0 6px}
+  h3{font-size:1.05rem;margin:26px 0 6px}
+  .item{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+        padding:16px 18px;margin:14px 0}
+  .item.crit{border-left:4px solid var(--crit)}
+  .item.warn{border-left:4px solid var(--warn)}
+  .item.low{border-left:4px solid var(--muted)}
+  .badge{display:inline-block;font-size:.72rem;font-weight:700;letter-spacing:.04em;
+         text-transform:uppercase;padding:3px 9px;border-radius:999px;margin-right:8px;
+         vertical-align:2px}
+  .b-crit{background:var(--crit);color:#fff}
+  .b-warn{background:var(--warn);color:#3a2400}
+  .b-low{background:var(--muted);color:#0d1520}
+  table{width:100%;border-collapse:collapse;margin:12px 0;display:block;overflow-x:auto}
+  th,td{padding:7px 12px;border-bottom:1px solid var(--line);text-align:left}
+  th{color:var(--muted);font-weight:600;white-space:nowrap}
+  code{background:var(--code);padding:2px 6px;border-radius:5px;font-size:.88em}
+  pre{background:var(--code);padding:14px 16px;border-radius:10px;overflow-x:auto;
+      border:1px solid var(--line);font-size:.88em}
+  pre code{background:none;padding:0}
+  .bad{color:var(--crit);font-weight:600}
+  .good{color:var(--ok);font-weight:600}
+  .why{color:var(--muted);font-size:.94em}
+  .ref{font-size:.86rem;color:var(--muted);margin-top:10px}
+  .ref code{font-size:.95em}
+  footer{margin-top:52px;padding-top:18px;border-top:1px solid var(--line);
+         color:var(--muted);font-size:.88rem;display:flex;align-items:center;gap:10px;
+         flex-wrap:wrap}
+  footer img{height:22px}
+  a{color:var(--accent)}
+  ul{padding-left:20px;margin:8px 0}
+  li{margin:4px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>bit-rxy — TODO / known issues</h1>
+<p class="sub">Found while building <strong>maqueen-rxy</strong> (a separate copy). Every item below
+is <em>already fixed and field-tested there</em> — this list is the port-back plan.</p>
+<p class="stamp">Recorded 2026-08-07 09:33 · bit-rxy itself is <strong>unmodified</strong>; this file is a note only.</p>
+
+<h2>Critical — silent data loss</h2>
+
+<div class="item crit">
+  <span class="badge b-crit">1 · correctness</span><strong>BLE writes are not split to the 20-byte MTU</strong>
+  <p class="why">The micro:bit negotiates the default 23-byte ATT MTU, leaving exactly <strong>20 bytes</strong>
+  of payload. A longer write is <span class="bad">silently truncated, not rejected</span> — the trailing
+  <code>\n</code> never arrives, the firmware's <code>uartReadUntil(NewLine)</code> waits forever for a line
+  that never completes, and the command vanishes with <strong>no error on either side</strong>.</p>
+
+  <p class="why">This breaks bit-rxy's <strong>own built-in widgets</strong>:</p>
+  <table>
+    <tr><th>Widget id</th><th>Example message</th><th>Bytes</th><th>Result</th></tr>
+    <tr><td><code>dpad_nav</code></td><td><code>SET dpad_nav right 1</code></td><td>21</td><td class="bad">lost</td></tr>
+    <tr><td><code>joy_move</code></td><td><code>SET joy_move 180 100</code></td><td>21</td><td class="bad">lost</td></tr>
+    <tr><td><code>slider_speed</code></td><td><code>SET slider_speed 100</code></td><td>21</td><td class="bad">lost at ≥100</td></tr>
+    <tr><td><code>slider_power</code></td><td><code>SET slider_power 100</code></td><td>21</td><td class="bad">lost at ≥100</td></tr>
+    <tr><td><code>editfield_name</code></td><td><code>SET editfield_name …</code></td><td>21</td><td class="bad">lost</td></tr>
+  </table>
+
+  <p class="why">The sliders are the nastiest failure mode: <strong>they work for values 0–99 and die
+  silently at 100</strong>. Testing at low values looks perfect, then it fails in front of an audience.
+  The D-pad and joystick — the two headline widgets — are broken outright.</p>
+
+  <p class="why"><strong>Fix:</strong> in <code>bleWrite()</code>, loop the encoded buffer in ≤20-byte
+  slices and write each one. No firmware change needed — the UART service buffers incoming bytes, so
+  <code>uartReadUntil()</code> reassembles them. The reverse direction already worked because
+  <code>onNotify()</code> reassembles via <code>state.rxBuffer</code>.</p>
+
+  <p class="why"><strong>Smallest useful change in the whole list.</strong> If only one thing gets done,
+  do this one — it makes the D-pad, joystick and sliders work, and carries almost no regression risk.</p>
+  <p class="ref">📍 <code>script.js:1566</code> — <code>const data = encoder.encode(msg + '\n')</code></p>
+</div>
+
+<h2>Critical — the firmware generator ships the same landmines to every user</h2>
+
+<p class="why"><code>generateDemoCode()</code> emits the starter firmware for <em>every</em> project built
+with bit-rxy, so anything wrong in the template is copied into all of them. It currently contains:</p>
+
+<div class="item crit">
+  <span class="badge b-crit">2 · correctness</span><strong>No pacing between CFG chunks</strong>
+  <p class="why">The generated <code>GETCFG</code> loop writes every chunk back-to-back with no
+  <code>basic.pause()</code> at all. Chunks outrun the BLE connection interval and get dropped — this is
+  the <strong>"stuck at 0%"</strong> hang, baked into every generated firmware.</p>
+  <pre><code>for (let i = 0; i &lt; CFG.length; i += 18) {
+    bluetooth.uartWriteLine("CFG " + CFG.substr(i, 18))   // &lt;-- no pause
+}</code></pre>
+  <p class="why"><strong>Fix:</strong> add <code>basic.pause(20)</code> inside the loop, plus one before
+  <code>CFGBEGIN</code> and one after. maqueen-rxy uses 20ms; 35ms is the safe fallback if a device is fussy.</p>
+</div>
+
+<div class="item crit">
+  <span class="badge b-crit">3 · correctness</span><strong>Blocking calls inside the BLE receive handler</strong>
+  <p class="why">The template calls <code>basic.showIcon(IconNames.Yes)</code> from inside
+  <code>onUartDataReceived</code>. Every <code>basic.show*</code> renders <em>and then pauses</em> — roughly
+  600ms for <code>showArrow</code>/<code>showIcon</code>, 400ms for <code>showLeds</code>. That blocks the
+  receive callback, so the next command arrives while the handler is still busy and gets dropped or
+  reordered. Template totals: <strong>18 <code>basic.show*</code> calls</strong>.</p>
+  <p class="why">Reference point: DFRobot's own working firmware keeps the display entirely
+  <em>off</em> the command path — every display call there belongs to a dedicated display verb, never
+  to the motor path.</p>
+  <p class="why"><strong>Fix:</strong> handlers set a flag; a <code>basic.forever</code> loop does the drawing,
+  passing <code>interval 0</code> so nothing pauses. One renderer, no races.</p>
+</div>
+
+<div class="item crit">
+  <span class="badge b-crit">4 · correctness</span><strong><code>serial.writeLine()</code> in the template (×5)</strong>
+  <p class="why"><code>serial.writeLine()</code> <span class="bad">blocks the calling fiber</span> when nothing
+  is draining the USB serial buffer — which is the normal case once the cable is unplugged and the robot
+  runs on BLE alone. It looks fine while debugging with a serial monitor open, then hangs in real use.</p>
+  <p class="why"><strong>Fix:</strong> gate all logging behind a <code>debugEnabled</code> flag defaulting to
+  <code>false</code>, and prefer queueing log lines for the main loop to emit over BLE rather than writing
+  to serial at all.</p>
+</div>
+
+<div class="item warn">
+  <span class="badge b-warn">5 · robustness</span><strong>No connection flag gating <code>uartWriteLine</code></strong>
+  <p class="why">The template has no <code>btConnected</code>-style flag, so it keeps writing to the UART
+  after the link drops. Writing to a UART with no peer blocks once the buffer stops draining, which wedges
+  the BLE stack — and a wedged stack makes the <em>next</em> connect hang in service discovery.</p>
+  <p class="why"><strong>Fix:</strong> set a flag in <code>onBluetoothConnected</code> /
+  <code>onBluetoothDisconnected</code> and gate every write on it. Also: draw the display <em>before</em> any
+  radio write in the loop, so a wedged radio can't starve the screen.</p>
+</div>
+
+<h2>Reliability — connect/disconnect</h2>
+
+<div class="item warn">
+  <span class="badge b-warn">6</span><strong>GATT setup can hang forever</strong>
+  <p class="why"><code>getPrimaryService()</code> and friends can <em>never resolve and never reject</em> if the
+  peripheral's GATT server is still holding a previous session. <code>connectBle()</code> then sits inside an
+  <code>await</code> with no error and no way out; clicking Connect again just wedges at the same step.</p>
+  <p class="why"><strong>Fix:</strong> wrap each setup call in an ~8s timeout, and disconnect the half-open
+  GATT link in the catch block so the next attempt starts clean.</p>
+</div>
+
+<div class="item warn">
+  <span class="badge b-warn">7</span><strong>Stale disconnect events kill live sessions</strong>
+  <p class="why">Reconnecting calls <code>disconnect()</code> on the previous device; that event can arrive
+  <em>after</em> the new connection is up and wipe it. Guarding on <code>state.ble.device</code> is not enough —
+  it is only assigned after every characteristic lookup, so during setup a <strong>genuine</strong> drop gets
+  dismissed as stale and resurfaces later as a confusing <code>NetworkError</code>.</p>
+  <p class="why"><strong>Fix:</strong> track a <code>currentDevice</code> claimed as soon as
+  <code>requestDevice()</code> resolves, and compare against that.</p>
+</div>
+
+<div class="item warn">
+  <span class="badge b-warn">8</span><strong>Disconnect listeners accumulate</strong>
+  <p class="why">Chrome returns the <em>same</em> <code>BluetoothDevice</code> object for a given device, so
+  <code>addEventListener</code> stacks one handler per connect attempt — a single disconnect then runs the
+  teardown several times.</p>
+  <p class="why"><strong>Fix:</strong> remove the previous listener before attaching a new one, and make
+  <code>onDisconnect()</code> idempotent. Add a ~400ms settle delay before reconnecting.</p>
+</div>
+
+<div class="item warn">
+  <span class="badge b-warn">9</span><strong>A dropped <code>GETCFG</code> has no recovery path</strong>
+  <p class="why">If the request is lost, the loader sits at 0% forever — nothing retries.</p>
+  <p class="why"><strong>Fix:</strong> resend every ~3s, up to ~4 attempts, cancelled on the first
+  <code>CFGBEGIN</code> or <code>CFG</code> line. Keep the retry window <em>longer</em> than a full transfer, or a
+  retry fires mid-stream and corrupts a perfectly healthy one.</p>
+</div>
+
+<h2>Minor</h2>
+
+<div class="item low">
+  <span class="badge b-low">10</span><strong>D-pad shares one widget id across four directions</strong>
+  <p class="why">All four send under the same id, and the send queue keeps a single latest-wins slot, so a
+  quick direction change can overwrite an unflushed press or release. Less likely once the MTU fix lands,
+  but still a real race.</p>
+  <p class="why"><strong>Fix:</strong> a small FIFO for discrete must-not-drop messages, drained ahead of the
+  latest-wins slot (which stays correct for continuous controls like sliders and joysticks).</p>
+</div>
+
+<div class="item low">
+  <span class="badge b-low">11</span><strong>Duplicate D-pad binding</strong>
+  <p class="why"><code>btn.onclick = press</code> fires in addition to <code>mousedown</code>, so
+  <code>press()</code> runs twice per tap. Currently harmless only because the <code>dpadPressed</code> guard
+  swallows it — but that same guard, with the 100ms release debounce, silently drops a genuine second tap
+  inside 100ms.</p>
+  <p class="ref">📍 <code>script.js:5978</code></p>
+</div>
+
+<div class="item low">
+  <span class="badge b-low">12</span><strong>No way to disconnect from the app</strong>
+  <p class="why">The header pill always calls <code>connectBle()</code>, so clicking it while connected
+  re-opens the device picker instead of hanging up. Nothing ever drops the GATT link, so the firmware never
+  sees a disconnect.</p>
+  <p class="why"><strong>Fix:</strong> make it a toggle — connect when idle, disconnect when live.</p>
+</div>
+
+<h2>Suggested order</h2>
+<ul>
+  <li><strong>Ship item 1 alone first.</strong> One function, biggest payoff, near-zero regression risk.</li>
+  <li>Then items 2–5 together as a single generator-template update.</li>
+  <li>Then 6–9 as a connect-reliability pass.</li>
+  <li>10–12 whenever convenient.</li>
+</ul>
+<p class="why">All twelve are implemented in <code>27/maqueen-rxy/</code> — copy from there rather than
+rewriting, and note that the fixes carry explanatory comments about <em>why</em>, which are worth keeping.</p>
+
+<footer>
+  <img src="assets/workshop-diy-logo.svg" alt="" onerror="this.remove()">
+  <span>Powered by <a href="https://workshop-diy.org">Workshop-DIY.org</a></span>
+</footer>
+
+</div>
+</body>
+</html>
